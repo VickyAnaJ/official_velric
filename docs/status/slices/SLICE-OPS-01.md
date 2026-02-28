@@ -6,7 +6,7 @@
 - Owner: anajaramillo
 - Included FR IDs: FR-01, FR-02, FR-03, FR-04, FR-05, FR-16
 - Relevant NFR IDs: NFR-P-01, NFR-P-02, NFR-U-01, NFR-U-02, NFR-R-01, NFR-C-01, NFR-C-02
-- Status: [WIP]
+- Status: [Done]
 - Start Gate: [WIP] (activated in Step 3.1)
 - Demo/Test Condition: User can trigger incident ingestion and view typed triage output from graph-backed state.
 - Linked Foundation Task IDs: FT-OPS-INFRA-01 ([WIP]), FT-OPS-TEST-01 ([WIP])
@@ -624,7 +624,39 @@
 - Step 3.6 completion condition: satisfied.
 
 ## 3.7 Retry/Escalation Log
-Pending Step 3.7.
+### 3.7 Retry Summary
+- Retry required: No.
+- Reason: Step 3.6 review completed with `Approved` verdict and no unresolved defects.
+- Attempts executed: 0.
+- Escalation triggered: No.
+- Gate result: Complete (N/A).
 
 ## 3.8 Slice Closure Output
-Pending Step 3.8.
+### Closure Header
+- Slice ID: `SLICE-OPS-01`
+- Commit reference(s):
+  - `fe7e87f` (`3.0`-`3.4` bootstrap/planning/strategy/pattern/prompt-chain)
+  - `546323d` (`3.5` implementation)
+  - `6422c74` (`3.6` review evidence and approval)
+
+### Gate results
+- Gate 1 (Mock/Stub reconciliation): Pass.
+  - Evidence: no temporary mocks/stubs remain in slice behavior path; linked foundation logs updated (`FT-OPS-INFRA-01`, `FT-OPS-TEST-01`) and consistent with current slice state.
+- Gate 2 (Cleanup/hygiene): Pass.
+  - Notes: temporary placeholder logic removed from slice path; comments limited to necessary behavior notes; out-of-scope items retained as explicit deferrals only.
+- Gate 3 (Commit readiness): Pass.
+  - Notes: slice scope constrained to FR-01/02/03/04/05/16 only; `main` branch test commands are runnable and passing; closure commit subject format prepared for final release commit.
+- Gate 4 (Environment verification): Pass.
+  - Evidence:
+    - local runtime equivalent validated via integration suites:
+      - `./scripts/test_integration.sh` -> Pass (5 tests)
+      - endpoint behavior validated for `/metrics`, `/incident/trigger`, `/incident/{id}`
+    - integration failure scenarios verified (invalid JSON, metrics-source unavailable).
+- Gate 5 (Testing closure): Pass.
+  - Evidence:
+    - `./scripts/test.sh` -> Pass
+    - `./scripts/test_coverage.sh` -> Pass (`27.08%` vs threshold `25.00%`)
+    - no unresolved failing/flaky in-slice tests observed.
+
+### Closure verdict
+- Ready to Close.
