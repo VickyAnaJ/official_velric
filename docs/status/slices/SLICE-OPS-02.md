@@ -167,7 +167,73 @@
 - Architecture conformance statement: selected strategy preserves Step 1.3 boundaries, fail-closed behavior, typed contracts, and allowlist-only execution constraints.
 
 ## 3.3.1 Pattern Evaluation + Final Convergence
-Pending Step 3.3.1.
+### Pattern P1 - Sequential Orchestrator with Typed Stage Contracts (Selected)
+- What this pattern does (one sentence, plain language): implements `S2` by running planner, policy gate, and executor as a single deterministic sequence with typed inputs/outputs between stages.
+- References selected Strategy ID from Step 3.3: `S2`
+- Primary implementation shape (how this pattern structures the code path): `execute_endpoint -> plan_service -> policy_service -> bounded_executor -> graph_update_service`.
+- Contract preservation check:
+  - Does this pattern preserve the same component boundaries? Yes.
+  - Does this pattern preserve the approved data flow? Yes.
+  - Does this pattern preserve approved communication contracts (input/output JSON and compatibility)? Yes.
+  - Does this pattern preserve failure-mode/fallback behavior? Yes, fail-closed on policy/action failures.
+  - Does this pattern preserve security boundary checks (RBAC/safe field exposure/auth flow)? Yes for this slice scope.
+- Code Design Evaluation Criteria scoring (Logic Unification / Branching Quality / Artificial Complexity): 9/10, 8/10, 8/10.
+- FR/NFR preservation summary for the active slice for the current owner: full preservation for FR-06..10 and NFR-S-01/02/03, NFR-R-03, NFR-P-02.
+- Expected validation signals and anti-signals:
+  - Expected signals: explicit policy-block responses, allowlist-only execution path, graph updated only after approved execution.
+  - Expected anti-signals: direct tool calls before policy check, mixed planner/executor concerns.
+- Observed evidence references: Step 3.3 selected strategy `S2`; Step 1.3 component boundaries and failure handling rules.
+- Match/Mismatch summary: Match.
+- Implementation complexity rating (Low/Medium/High) with rationale: Medium; clear module separation with straightforward orchestration.
+- Pattern verdict (Accept/Reject) with reason: Accept; best balance of safety and implementation clarity.
+
+### Pattern P2 - Rule-Table Policy Matrix with Inline Executor Hooks
+- What this pattern does (one sentence, plain language): implements `S2` using a rule-table for policy outcomes while invoking executor hooks inline during policy evaluation.
+- References selected Strategy ID from Step 3.3: `S2`
+- Primary implementation shape (how this pattern structures the code path): `plan -> rule-table evaluation -> inline hook executes action on allow`.
+- Contract preservation check:
+  - Does this pattern preserve the same component boundaries? Partially.
+  - Does this pattern preserve the approved data flow? Partially.
+  - Does this pattern preserve approved communication contracts (input/output JSON and compatibility)? Yes externally.
+  - Does this pattern preserve failure-mode/fallback behavior? Partial; policy and execution coupling can blur fail-closed behavior.
+  - Does this pattern preserve security boundary checks (RBAC/safe field exposure/auth flow)? At risk due to inline execution hooks.
+- Code Design Evaluation Criteria scoring (Logic Unification / Branching Quality / Artificial Complexity): 6/10, 6/10, 5/10.
+- FR/NFR preservation summary for the active slice for the current owner: functionally possible but weaker guarantee for NFR-S-01/02 boundaries.
+- Expected validation signals and anti-signals:
+  - Expected signals: compact policy decision map.
+  - Expected anti-signals: conditional branches that bypass clean module boundaries.
+- Observed evidence references: Step 3.2 dependency claims call for explicit policy and execution contracts, not coupled hooks.
+- Match/Mismatch summary: Mismatch for boundary safety.
+- Implementation complexity rating (Low/Medium/High) with rationale: Medium/High due to hidden control coupling.
+- Pattern verdict (Accept/Reject) with reason: Reject; increases boundary-risk and artificial branching.
+
+### Pattern P3 - Event-Driven Plan/Policy/Execute Pipeline
+- What this pattern does (one sentence, plain language): implements `S2` by emitting asynchronous events between planning, policy, and execution stages.
+- References selected Strategy ID from Step 3.3: `S2`
+- Primary implementation shape (how this pattern structures the code path): `plan_event -> policy_event -> execute_event -> graph_update_event`.
+- Contract preservation check:
+  - Does this pattern preserve the same component boundaries? Yes in theory.
+  - Does this pattern preserve the approved data flow? Partially (introduces async eventual consistency not required here).
+  - Does this pattern preserve approved communication contracts (input/output JSON and compatibility)? Yes externally; internal contracts expand significantly.
+  - Does this pattern preserve failure-mode/fallback behavior? Partial; retry/dead-letter complexity introduced.
+  - Does this pattern preserve security boundary checks (RBAC/safe field exposure/auth flow)? Potentially, but with additional event security concerns.
+- Code Design Evaluation Criteria scoring (Logic Unification / Branching Quality / Artificial Complexity): 7/10, 6/10, 4/10.
+- FR/NFR preservation summary for the active slice for the current owner: covers FRs but overcomplicates current local-safe execution scope.
+- Expected validation signals and anti-signals:
+  - Expected signals: decoupled stages and extensibility.
+  - Expected anti-signals: increased operational branches and timing-related edge cases.
+- Observed evidence references: no queue/event infrastructure claimed in Step 3.2 for this slice.
+- Match/Mismatch summary: Mismatch for current readiness and scope.
+- Implementation complexity rating (Low/Medium/High) with rationale: High due to infrastructure and reliability overhead.
+- Pattern verdict (Accept/Reject) with reason: Reject; premature complexity for this cycle.
+
+### Final pattern convergence block
+- Rejected Pattern IDs + rule-out reason:
+  - `P2`: couples policy and execution too tightly, weakening security boundaries.
+  - `P3`: adds asynchronous complexity and infra requirements not in current dependency plan.
+- Selected Pattern ID: `P1`
+- Confidence score (%): 90%
+- Decision rationale (why it best implements the selected strategy with lowest artificial complexity): `P1` keeps policy gating explicit, execution bounded, and failure handling deterministic while staying aligned with existing runtime/test foundations.
 
 ## 3.4 Prompt Chain
 Pending Step 3.4.
