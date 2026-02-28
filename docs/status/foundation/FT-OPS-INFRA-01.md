@@ -22,9 +22,15 @@ Provides shared Jac/Jaseci runtime plumbing and slice-neutral contracts needed b
   - `SLICE-OPS-01` -> real shared runtime/bootstrap implementation owner
   - `SLICE-OPS-02` -> mock consumer
   - `SLICE-OPS-03` -> mock consumer
+- Step `3.3` strategy alignment for `SLICE-OPS-01` selected a single-file Jac-native implementation path:
+  - keep `main.jac` as the canonical runtime locus
+  - keep shared runtime/bootstrap concerns slice-neutral
+  - do not reintroduce a separate Python orchestration service
+  - foundation work must expose common runtime/bootstrap contracts that downstream slices can consume or mock without owning the implementation
 
 ## Verification Evidence
 - Claim recorded in `docs/STATUS.md` Foundation Task Registry and Step `3.2` outputs.
+- Strategy dependency recorded in `docs/status/slices/SLICE-OPS-01.md` Step `3.3`.
 
 ## Closure
 - Result: Not started.
