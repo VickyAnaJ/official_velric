@@ -6,7 +6,7 @@
 - Current Owner: anajaramillo
 - Workflow Baseline: `docs/workflow_hide/workflow.md` (confidential canonical copy)
 - Active `[WIP]` Slice: `SLICE-OPS-03`
-- Current Gate State: Step 4.0 cycle advanced; `SLICE-OPS-03` activated at Step 3.1 and ready for Step 3.2
+- Current Gate State: Step 3.2 complete (`Ready`) for `SLICE-OPS-03`; ready for Step 3.3
 
 ## Slice Registry
 | Slice ID | Capability Statement | Included FR IDs | Relevant NFR IDs | Dependency Grouping Rationale | Status | Start Gate | Owner | Demo/Test Condition | Detail File | Linked FT_IDs |
@@ -19,7 +19,7 @@
 | FT_ID | Scope/Contract | Status | Owner | Linked Slice IDs | Detail File |
 |---|---|---|---|---|---|
 | FT-TBD-BOOTSTRAP | Bootstrap placeholders only; no runtime behavior | [Done] | anajaramillo | N/A | `docs/status/foundation/FT-TBD-BOOTSTRAP.md` |
-| FT-OPS-INFRA-01 | Runtime/dev infra wiring needed by active slices (slice-neutral plumbing only) | [WIP] | anajaramillo | SLICE-OPS-01, SLICE-OPS-02 | `docs/status/foundation/FT-OPS-INFRA-01.md` |
+| FT-OPS-INFRA-01 | Runtime/dev infra wiring needed by active slices (slice-neutral plumbing only) | [WIP] | anajaramillo | SLICE-OPS-01, SLICE-OPS-02, SLICE-OPS-03 | `docs/status/foundation/FT-OPS-INFRA-01.md` |
 | FT-OPS-TEST-01 | Shared test harness and deterministic fixtures (slice-neutral) | [WIP] | anajaramillo | SLICE-OPS-01, SLICE-OPS-03 | `docs/status/foundation/FT-OPS-TEST-01.md` |
 
 ## Gate Ledger (3.2 through 3.8)
@@ -27,7 +27,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|
 | SLICE-OPS-01 | anajaramillo | Complete (`Ready`) | Complete (`S2`) | Complete (`P1`) | Complete (`PR-01..PR-06`) | Complete (`Done`) | Complete (`Approved`) | Complete (`N/A`) | Complete (`Ready to Close`) | `docs/status/slices/SLICE-OPS-01.md` |
 | SLICE-OPS-02 | anajaramillo | Complete (`Ready`) | Complete (`S2`) | Complete (`P1`) | Complete (`PR2-01..PR2-06`) | Complete (`Done`) | Complete (`Approved`) | Complete (`N/A`) | Complete (`Ready to Close`) | `docs/status/slices/SLICE-OPS-02.md` |
-| SLICE-OPS-03 | anajaramillo | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending | `docs/status/slices/SLICE-OPS-03.md` |
+| SLICE-OPS-03 | anajaramillo | Complete (`Ready`) | Pending | Pending | Pending | Pending | Pending | Pending | Pending | `docs/status/slices/SLICE-OPS-03.md` |
 
 ## Open Blockers/Escalations
 - None. Active dependency gaps are now explicitly claimed as `FT-OPS-INFRA-01` and `FT-OPS-TEST-01`.
@@ -412,3 +412,18 @@
 ### 4.0 progression verdict
 - Result: Complete (current cycle advancement).
 - Next step: execute Step 3.2 for `SLICE-OPS-03`.
+
+## Step 3.2 Output (`SLICE-OPS-03`)
+### Summary
+- Completed dependency discovery/classification with no implementation changes.
+- Classified available dependency from `SLICE-OPS-02` execution outputs as `Use`.
+- Classified missing verify/rollback/audit physical dependencies as `Claim`.
+- Shared dependency handling:
+  - `FT-OPS-INFRA-01` -> `Claim` (remains `[WIP]`, owner: anajaramillo)
+  - `FT-OPS-TEST-01` -> `Use` (remains `[WIP]`, owner: anajaramillo)
+- Canonical dependency evidence recorded in: `docs/status/slices/SLICE-OPS-03.md`.
+
+### 3.2 Completion verdict
+- Result: Complete.
+- Readiness verdict: `Ready`.
+- Next step: proceed to Step 3.3 strategy evaluation for `SLICE-OPS-03`.

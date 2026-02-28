@@ -26,7 +26,37 @@
 - Status transition: `[Planned]` -> `[WIP]`
 
 ## 3.2 Dependency Output
-Pending Step 3.2.
+### Dependency header
+- Slice ID: `SLICE-OPS-03`
+
+### Physical dependency list
+| Resource | Required capability | Status | Handling decision | Owner |
+|---|---|---|---|---|
+| Execution outcomes from `SLICE-OPS-02` (`plan/policy/action_results`) | Input state for verify/rollback/audit flows | Available | Use | anajaramillo |
+| Post-action metrics re-check path | Verify success/failure after remediation | Missing | Claim | anajaramillo |
+| Rollback operation adapters | Revert executed actions on verification failure | Missing | Claim | anajaramillo |
+| Audit timeline persistence/view model | Record machine+human readable timeline entries | Missing | Claim | anajaramillo |
+
+### Shared dependency list
+| Task ID | Current status | Owner | Handling decision | Interface contract reference | Foundation Detail File |
+|---|---|---|---|---|---|
+| FT-OPS-INFRA-01 | [WIP] | anajaramillo | Claim | Extend runtime plumbing for verify/rollback orchestration + audit persistence boundaries | `docs/status/foundation/FT-OPS-INFRA-01.md` |
+| FT-OPS-TEST-01 | [WIP] | anajaramillo | Use | Reuse deterministic test harness and coverage gates for rollback/audit verification suites | `docs/status/foundation/FT-OPS-TEST-01.md` |
+
+### Mandatory dependency prompt requirements for Step 3.4/3.5
+| Prompt purpose | Linked dependency | Required ordering/gate |
+|---|---|---|
+| Add verification evaluator and post-action metric check contracts | Physical: Post-action metrics re-check path | Must run before rollback decision prompts |
+| Add rollback adapter boundaries for inverse actions | Physical: Rollback operation adapters | Must run before rollback execution prompts |
+| Add audit entry schema/persistence contract | Physical: Audit timeline persistence/view model | Must run before audit rendering prompts |
+| Extend runtime plumbing for verify/rollback/audit flow | FT-OPS-INFRA-01 | Must run before strategy implementation prompts |
+| Reuse deterministic test harness for failure-mode tests | FT-OPS-TEST-01 | Must run before logic-changing prompts |
+
+### Dependency readiness verdict
+- Verdict: `Ready`
+
+### Blockers
+- None at Step 3.2. Missing dependencies are explicitly claimed with owner and foundation references.
 
 ## 3.3 Strategy Evaluation + Final Convergence
 Pending Step 3.3.
