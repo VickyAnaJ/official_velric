@@ -24,11 +24,11 @@ class TestSliceOps03PromptChainContract(unittest.TestCase):
         self.assertIn('"mttr": execution_state.get("mttr", build_mttr_metrics(None, None))', self.source)
 
     def test_ui_mentions_verification_and_mttr(self) -> None:
-        self.assertIn("<h2>Audit Log + MTTR</h2>", self.source)
-        self.assertIn("Recovery seconds:", self.source)
-        self.assertIn("Manual baseline:", self.source)
-        self.assertIn("Verification:", self.source)
-        self.assertIn('incident = await execute_incident(seed["incident_id"])', self.source)
+        self.assertIn("MTTR", self.source)
+        self.assertIn("time_to_recovery_seconds", self.source)
+        self.assertIn("manual_baseline_seconds", self.source)
+        self.assertIn("Verify", self.source)
+        self.assertIn('await execute_incident(seed["incident_id"])', self.source)
         self.assertIn("useEffect(lambda -> None {", self.source)
         self.assertIn("setInterval(lambda -> None { refresh_incident(); }, 1000);", self.source)
 

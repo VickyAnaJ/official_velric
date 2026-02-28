@@ -1424,6 +1424,7 @@ cl import from react { useEffect }
 cl def:pub app() -> JsxElement {
     has incident_id: str = "";
     has incident: dict = {};
+    has loading: bool = True;
 
     async def refresh_incident() -> None {
         if incident_id != "" {
@@ -1431,10 +1432,36 @@ cl def:pub app() -> JsxElement {
         }
     }
 
-    async can with entry {
+    async def run_pipeline() -> None {
+        loading = True;
         seed = await trigger_incident();
         incident_id = seed["incident_id"];
-        incident = await execute_incident(seed["incident_id"]);
+        incident = seed;
+        result = await execute_incident(seed["incident_id"]);
+        incident = result;
+        loading = False;
+    }
+
+    async def run_rollback_demo() -> None {
+        loading = True;
+        seed = await trigger_incident(incident_id="inc_rb_" + str(Date.now()));
+        incident_id = seed["incident_id"];
+        result = await execute_incident(seed["incident_id"], force_verification_failure=True);
+        incident = result;
+        loading = False;
+    }
+
+    async def run_blocked_demo() -> None {
+        loading = True;
+        seed = await trigger_incident(incident_id="inc_bl_" + str(Date.now()));
+        incident_id = seed["incident_id"];
+        result = await execute_incident(seed["incident_id"], confidence=0.5);
+        incident = result;
+        loading = False;
+    }
+
+    async can with entry {
+        await run_pipeline();
     }
 
     useEffect(lambda -> None {
@@ -1445,35 +1472,156 @@ cl def:pub app() -> JsxElement {
         return lambda -> None { clearInterval(interval); };
     }, [incident_id]);
 
+    def get_severity_color() -> str {
+        if incident and incident.get("severity", "") == "critical" { return "#e53e3e"; }
+        if incident and incident.get("severity", "") == "high" { return "#dd6b20"; }
+        return "#718096";
+    }
+
+    def get_status_color() -> str {
+        if incident and incident.get("status", "") == "resolved" { return "#38a169"; }
+        if incident and incident.get("status", "") == "active" { return "#e53e3e"; }
+        return "#718096";
+    }
+
+    def get_policy_color() -> str {
+        pol = incident.get("policy_decision", {}).get("status", "") if incident else "";
+        if pol == "PASS" { return "#38a169"; }
+        if pol == "POLICY_BLOCKED" { return "#e53e3e"; }
+        return "#dd6b20";
+    }
+
+    def get_verify_color() -> str {
+        if incident and incident.get("verification", {}).get("passed", False) { return "#38a169"; }
+        return "#e53e3e";
+    }
+
+    def format_actions() -> str {
+        results = incident.get("action_results", []) if incident else [];
+        lines = [];
+        for a in results {
+            mark = "+" if a.get("status", "") == "succeeded" else "x";
+            lines.append(mark + " " + a.get("action_type", "") + " -> " + a.get("target", ""));
+        }
+        return "\n".join(lines) if lines else "No actions executed";
+    }
+
+    def format_audit() -> str {
+        entries = incident.get("audit", []) if incident else [];
+        lines = [];
+        for entry in entries {
+            lines.append("[" + entry.get("step", "").upper() + "] " + entry.get("plain_summary", ""));
+        }
+        return "\n".join(lines) if lines else "No audit entries";
+    }
+
+    def get_pct_saved() -> int {
+        mttr = incident.get("mttr", {}) if incident else {};
+        saved = mttr.get("seconds_saved_vs_manual", 0);
+        baseline = mttr.get("manual_baseline_seconds", 1800);
+        if baseline > 0 { return round((saved / baseline) * 100); }
+        return 0;
+    }
+
+    page_style = {"fontFamily": "'Segoe UI', system-ui, sans-serif", "backgroundColor": "#0f1117", "color": "#e2e8f0", "minHeight": "100vh", "padding": "20px 24px"};
+    container_style = {"maxWidth": "1400px", "margin": "0 auto"};
+    header_style = {"display": "flex", "alignItems": "center", "justifyContent": "space-between", "marginBottom": "20px", "borderBottom": "1px solid #2d3748", "paddingBottom": "16px"};
+    btn_blue = {"padding": "8px 16px", "fontSize": "13px", "fontWeight": "600", "backgroundColor": "#3182ce", "color": "#fff", "border": "none", "borderRadius": "6px", "cursor": "pointer"};
+    btn_red = {"padding": "8px 16px", "fontSize": "13px", "fontWeight": "600", "backgroundColor": "#e53e3e", "color": "#fff", "border": "none", "borderRadius": "6px", "cursor": "pointer"};
+    btn_orange = {"padding": "8px 16px", "fontSize": "13px", "fontWeight": "600", "backgroundColor": "#dd6b20", "color": "#fff", "border": "none", "borderRadius": "6px", "cursor": "pointer"};
+    card_style = {"backgroundColor": "#1a202c", "borderRadius": "10px", "padding": "16px", "border": "1px solid #2d3748"};
+    grid_style = {"display": "grid", "gridTemplateColumns": "1fr 1fr 1fr 1fr", "gap": "12px", "marginBottom": "16px"};
+    label_style = {"fontSize": "11px", "fontWeight": "700", "textTransform": "uppercase", "color": "#718096", "letterSpacing": "1px", "marginBottom": "12px"};
+    detail_style = {"fontSize": "12px", "color": "#a0aec0", "marginTop": "4px"};
+    pre_style = {"fontSize": "12px", "color": "#a0aec0", "whiteSpace": "pre-wrap", "margin": "0", "lineHeight": "1.6", "fontFamily": "'SF Mono', 'Fira Code', monospace"};
+
+    if loading {
+        return (
+            <div style={page_style}>
+                <div style={{"textAlign": "center", "paddingTop": "120px"}}>
+                    <div style={{"fontSize": "28px", "fontWeight": "700", "color": "#fff", "marginBottom": "12px"}}>Ops Graph</div>
+                    <div style={{"fontSize": "14px", "color": "#718096"}}>Running walker pipeline...</div>
+                </div>
+            </div>
+        );
+    }
+
+    if not incident {
+        return (
+            <div style={page_style}>
+                <div style={{"textAlign": "center", "paddingTop": "120px"}}>
+                    <div style={{"fontSize": "28px", "fontWeight": "700", "color": "#fff", "marginBottom": "12px"}}>Ops Graph</div>
+                    <div style={{"fontSize": "14px", "color": "#718096"}}>No incident loaded</div>
+                    <button onClick={run_pipeline} style={btn_blue}>Trigger Incident</button>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div>
-            <h1>Ops Graph</h1>
-            <p>Walker-native inference incident response with verification, rollback, audit, and MTTR visibility.</p>
-            <section>
-                <h2>Incident Feed</h2>
-                <p>Incident: {incident["incident_id"] if incident else "loading"}</p>
-                <p>Severity: {incident["severity"] if incident else "loading"}</p>
-                <p>Primary signals: {", ".join(incident["primary_signals"]) if incident and incident["primary_signals"] else "loading"}</p>
-            </section>
-            <section>
-                <h2>Graph View</h2>
-                <p>Deployment: {incident["deployment_id"] if incident else "loading"}</p>
-                <p>Current stage: {incident["current_stage"] if incident else "loading"}</p>
-                <p>Typed Incident, Alert, Metric, Deployment, Route, Config, and Policy nodes back the walker pipeline.</p>
-            </section>
-            <section>
-                <h2>Typed Decisions</h2>
-                <p>Incident type: {incident["hypothesis"]["incident_type"] if incident else "loading"}</p>
-                <p>Root cause: {incident["hypothesis"]["root_cause"] if incident else "loading"}</p>
-                <p>Verification: {incident["verification"]["status"] if incident else "loading"}</p>
-                <p>`triage_walker`, policy evaluation, and lifecycle closeout remain visible as typed state.</p>
-            </section>
-            <section>
-                <h2>Audit Log + MTTR</h2>
-                <p>Audit entries: {str(len(incident["audit"])) if incident else "loading"}</p>
-                <p>Recovery seconds: {str(incident["mttr"]["time_to_recovery_seconds"]) if incident else "loading"}</p>
-                <p>Manual baseline: {str(incident["mttr"]["manual_baseline_seconds"]) if incident else "loading"}</p>
-            </section>
+        <div style={page_style}>
+            <div style={container_style}>
+                <div style={header_style}>
+                    <div>
+                        <h1 style={{"margin": "0", "fontSize": "28px", "fontWeight": "700", "color": "#fff"}}>Ops Graph</h1>
+                        <p style={{"margin": "4px 0 0 0", "fontSize": "13px", "color": "#718096"}}>Walker-Native Inference Incident Response</p>
+                    </div>
+                    <div style={{"display": "flex", "gap": "8px"}}>
+                        <button onClick={run_pipeline} style={btn_blue}>New Incident</button>
+                        <button onClick={run_rollback_demo} style={btn_red}>Rollback Demo</button>
+                        <button onClick={run_blocked_demo} style={btn_orange}>Policy Block</button>
+                    </div>
+                </div>
+
+                <div style={grid_style}>
+                    <div style={card_style}>
+                        <div style={label_style}>Incident</div>
+                        <div style={{"fontSize": "18px", "fontWeight": "700", "color": "#fff", "marginBottom": "8px"}}>{incident.get("incident_id", "")}</div>
+                        <div style={{"display": "flex", "gap": "8px", "marginBottom": "10px"}}>
+                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": get_severity_color(), "color": "#fff"}}>{incident.get("severity", "").upper()}</span>
+                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": get_status_color(), "color": "#fff"}}>{incident.get("status", "").upper()}</span>
+                        </div>
+                        <div style={detail_style}>Stage: <span style={{"color": "#e2e8f0", "fontWeight": "600"}}>{incident.get("current_stage", "")}</span></div>
+                        <div style={detail_style}>Signals: <span style={{"color": "#e2e8f0"}}>{", ".join(incident.get("primary_signals", []))}</span></div>
+                    </div>
+
+                    <div style={card_style}>
+                        <div style={label_style}>Triage + Plan</div>
+                        <div style={{"fontSize": "14px", "fontWeight": "700", "color": "#63b3ed", "marginBottom": "6px"}}>{incident.get("hypothesis", {}).get("incident_type", "")}</div>
+                        <div style={{"fontSize": "12px", "color": "#a0aec0", "marginBottom": "10px", "lineHeight": "1.4"}}>{incident.get("hypothesis", {}).get("root_cause", "")}</div>
+                        <div style={detail_style}>Confidence: <span style={{"color": "#48bb78", "fontWeight": "700"}}>{str(incident.get("hypothesis", {}).get("confidence", 0))}</span></div>
+                        <div style={detail_style}>Planned actions: <span style={{"color": "#e2e8f0"}}>{str(len(incident.get("plan", {}).get("actions", [])))}</span></div>
+                    </div>
+
+                    <div style={card_style}>
+                        <div style={label_style}>Execution</div>
+                        <div style={{"marginBottom": "10px"}}>
+                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": get_policy_color(), "color": "#fff"}}>Policy: {incident.get("policy_decision", {}).get("status", "N/A")}</span>
+                        </div>
+                        <pre style={pre_style}>{format_actions()}</pre>
+                        <div style={{"fontSize": "12px", "marginTop": "10px"}}>
+                            <span style={{"color": "#a0aec0"}}>Verify: </span>
+                            <span style={{"color": get_verify_color(), "fontWeight": "700"}}>{incident.get("verification", {}).get("status", "N/A").upper()}</span>
+                        </div>
+                        <div style={{"fontSize": "12px", "marginTop": "4px", "color": "#e53e3e" if incident.get("rollback", {}).get("triggered", False) else "#718096", "fontWeight": "600"}}>Rollback: {incident.get("rollback", {}).get("status", "not_needed")}</div>
+                    </div>
+
+                    <div style={card_style}>
+                        <div style={label_style}>MTTR</div>
+                        <div style={{"fontSize": "36px", "fontWeight": "800", "color": "#48bb78", "lineHeight": "1"}}>{str(get_pct_saved())}%</div>
+                        <div style={{"fontSize": "11px", "color": "#718096", "marginBottom": "14px"}}>faster than manual</div>
+                        <div style={detail_style}>Recovery: <span style={{"color": "#e2e8f0", "fontWeight": "600"}}>{str(incident.get("mttr", {}).get("time_to_recovery_seconds", 0))}s</span></div>
+                        <div style={detail_style}>Manual baseline: <span style={{"color": "#718096"}}>{str(incident.get("mttr", {}).get("manual_baseline_seconds", 0))}s</span></div>
+                        <div style={detail_style}>Time saved: <span style={{"color": "#48bb78", "fontWeight": "600"}}>{str(incident.get("mttr", {}).get("seconds_saved_vs_manual", 0))}s</span></div>
+                        <div style={detail_style}>Mode: <span style={{"color": "#e2e8f0"}}>{incident.get("mttr", {}).get("resolution_mode", "")}</span></div>
+                    </div>
+                </div>
+
+                <div style={card_style}>
+                    <div style={label_style}>Audit Timeline</div>
+                    <pre style={pre_style}>{format_audit()}</pre>
+                </div>
+            </div>
         </div>
     );
 }

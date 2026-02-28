@@ -24,11 +24,11 @@ class TestPhase1SliceLayout(unittest.TestCase):
 
     def test_ui_copy_mentions_incident_lifecycle_and_audit(self) -> None:
         source = (ROOT / "main.jac").read_text()
-        self.assertIn("Walker-native inference incident response with verification, rollback, audit, and MTTR visibility.", source)
-        self.assertIn("<h2>Incident Feed</h2>", source)
-        self.assertIn("Verification:", source)
-        self.assertIn("<h2>Typed Decisions</h2>", source)
-        self.assertIn("Audit entries:", source)
+        self.assertIn("Walker-Native Inference Incident Response", source)
+        self.assertIn("Incident", source)
+        self.assertIn("Verify", source)
+        self.assertIn("Triage", source)
+        self.assertIn("Audit Timeline", source)
 
 
 if __name__ == "__main__":
