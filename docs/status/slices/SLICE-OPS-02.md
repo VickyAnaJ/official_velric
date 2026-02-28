@@ -527,7 +527,80 @@
   - Any TODOs explicitly marked as out-of-scope follow-ups: verify/rollback/audit paths remain deferred to later slices.
 
 ## 3.6 Slice Review Output
-Pending Step 3.6.
+### Review Header
+- Slice ID: `SLICE-OPS-02`
+- Strategy ID: `S2`
+- Pattern ID: `P1`
+- Reviewer model/tool identifier (must differ from implementation model/tool): `Static-review toolchain (python3 + unittest + boundary audit)` (non-authoring reviewer workflow)
+
+### FR/NFR Coverage Matrix
+- FR-06: Pass.
+  - Evidence reference: `services/ops_graph/planner.py` + `tests.unit.planner.test_supported_incident_plans`.
+- FR-07: Pass.
+  - Evidence reference: `services/ops_graph/policy.py` + `tests.unit.policy.test_policy_gate_decisions`.
+- FR-08: Pass.
+  - Evidence reference: `tests.integration.policy.test_approval_pause_flow::test_execute_returns_approval_required_without_token`.
+- FR-09: Pass.
+  - Evidence reference: bounded adapter + allowlist behavior in `services/ops_graph/executor.py` and execution flow tests.
+- FR-10: Pass.
+  - Evidence reference: graph update path in `services/ops_graph/graph.py::update_execution_state` validated by execution integration tests.
+- NFR-S-01: Pass.
+  - Evidence reference: allowlist-enforced evaluation and executor tests.
+- NFR-S-02: Pass.
+  - Evidence reference: low-confidence policy block path (`POLICY_BLOCKED`) validated in unit/integration.
+- NFR-S-03: Pass.
+  - Evidence reference: approval-gated `APPROVAL_REQUIRED` path validated via integration.
+- NFR-R-03: Pass.
+  - Evidence reference: explicit error/status outcomes (`unsupported_incident_type`, `POLICY_BLOCKED`, `APPROVAL_REQUIRED`, action failure statuses).
+- NFR-P-02: Pass.
+  - Evidence reference: deterministic in-process planner/policy/executor chain with passing integration suite.
+
+### Verification evidence
+- Build/test commands executed (required order):
+  - `make build` -> Pass (placeholder build target)
+  - `./scripts/test_unit.sh` -> Pass (24 tests)
+  - `./scripts/test_integration.sh` -> Pass (9 tests)
+  - `./scripts/test_coverage.sh` -> Pass (`36.94%` vs threshold `25.00%`)
+- Unit-test result summary (pass/fail, key suite names):
+  - Pass; key suites: policy contracts/gates, planner, executor, orchestrator execute order, execute API contract.
+- Integration-test result summary (pass/fail, key suite names):
+  - Pass; key suites: approval pause flow, SLICE-OPS-02 success/block/failure execution matrix.
+- Coverage summary (threshold result + key percentages):
+  - Pass; approximate line coverage `36.94%`, threshold `25.00%`.
+- Result summary (Pass/Fail):
+  - Pass.
+- If blocked, blocker + impact:
+  - None.
+
+### Edge-case coverage report
+- empty/null handling:
+  - Pass; missing `incident_id` returns `400` (`tests.unit.api.test_execute_endpoint_contract`).
+- boundary conditions:
+  - Pass; confidence threshold boundary behavior validated in policy gate unit tests.
+- error paths:
+  - Pass; policy block, approval required, unsupported incident type, and forced action failure all covered.
+- concurrent access/infrastructure failure checks (if applicable):
+  - Partial/acceptable for slice scope; deterministic repeated flows covered, deep concurrency stress intentionally deferred.
+
+### Failure-mode verification (from 3.3 critical-path plan)
+- Policy denial on threshold or allowlist violations: Pass.
+  - Evidence reference: policy gate unit tests + `test_policy_block_path`.
+- Approval-gated pause behavior: Pass.
+  - Evidence reference: `test_execute_returns_approval_required_without_token`.
+- Execution adapter failure handling: Pass.
+  - Evidence reference: `test_action_failure_path` returns failed action results without crashing pipeline.
+
+### Security and boundary regression check
+- RBAC/auth/session behavior:
+  - Pass (not introduced/changed in this slice; no new auth bypass paths added).
+- safe field exposure:
+  - Pass; execute responses expose operational execution/policy fields only.
+- component boundary violations (`None` / `Found` with notes):
+  - None.
+
+### Slice review verdict
+- Approved.
+- Step 3.6 completion condition: satisfied.
 
 ## 3.7 Retry/Escalation Log
 Pending Step 3.7.
