@@ -1,1 +1,4 @@
 workflow_hide/
+__pycache__/
+*.pyc
+.jac/
