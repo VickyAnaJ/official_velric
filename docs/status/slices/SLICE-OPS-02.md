@@ -293,7 +293,173 @@
 - Decision rationale (why it best implements the selected strategy with lowest artificial complexity): `P1` keeps strategy `S2` explicit, deterministic, and collaboration-safe while preserving clear security gates and failure contracts.
 
 ## 3.4 Prompt Chain
-- Not started.
+### Chain Header
+- References selected Strategy ID (from 3.3): `S2`
+- References selected Pattern ID (from 3.3.1): `P1`
+- Slice ID + included FR/NFR IDs: `SLICE-OPS-02`; FR-06, FR-07, FR-08, FR-09, FR-10; NFR-S-01, NFR-S-02, NFR-S-03, NFR-R-03, NFR-P-02
+- External source references required by this chain:
+  - `docs/SYSTEM_DESIGN_PLAN.md`
+  - `docs/external_apis.md/jaseci_api.md`
+  - `docs/external_apis.md/vLLM.md`
+
+### Prompt PR2-01 - Mock Contract Scaffolding for Upstream/Shared Dependencies
+- Objective (single responsibility only): define explicit in-slice mock contracts for upstream triage output and shared runtime interfaces from Step `3.2`.
+- Components touched:
+  - `main.jac` typed contract stubs for `IncidentHypothesis` input and execution-stage response shape
+  - slice-local contract fixtures used by `plan_walker`/policy/execute stages
+- Boundary constraints:
+  - Allowed to touch: mock/contract adapters and type declarations required to unblock `SLICE-OPS-02`.
+  - Must-Not-Touch: real implementation owned by `SLICE-OPS-01` (`triage_walker`) or `FT-OPS-INFRA-01` runtime plumbing.
+- Inputs required (from system design docs and prior prompt outputs): Step `3.2` dependency decisions (`Mock`), selected `S2` + `P1`.
+- External references required for this prompt (if any):
+  - `docs/SYSTEM_DESIGN_PLAN.md` (entity + pipeline contracts)
+  - `docs/external_apis.md/jaseci_api.md` (typed object/walker declaration semantics)
+- Outputs/artifacts expected (files/endpoints/tests/docs): typed mock contract structures and lightweight fixture helpers.
+- FR/NFR coverage for this prompt: Enabler for FR-06..10; NFR-R-03 (explicit contract/error-state readiness).
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): contract-shape tests for mocked triage payloads and execution-state schema.
+  - Integration tests to add/update (if applicable): none.
+  - Required mocks/test doubles and boundaries: mocked `IncidentHypothesis` and runtime endpoint contract fixtures only.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): missing hypothesis fields, unknown incident type placeholders.
+- Acceptance checks (clear pass/fail criteria): all downstream prompts can consume typed contract fixtures without requiring real upstream runtime ownership.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=85% for contract fixture module.
+- Dependency/gating rule (what must be true before running this prompt): Step `3.3.1` complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-INFRA-01.md`.
+- Foundation handling source: `Mock` (from Step `3.2`).
+
+### Prompt PR2-02 - `plan_walker` Typed Remediation Plan Generation
+- Objective (single responsibility only): implement `plan_walker` logic producing typed `RemediationPlan` from mocked `IncidentHypothesis`.
+- Components touched:
+  - `main.jac` `plan_walker` and plan object declarations
+  - plan construction helper logic
+- Boundary constraints:
+  - Allowed to touch: planning stage and its typed output.
+  - Must-Not-Touch: policy gate decisions and action execution behavior.
+- Inputs required (from system design docs and prior prompt outputs): PR2-01 contract fixtures; Step 1.3 `plan_walker` contract.
+- External references required for this prompt (if any):
+  - `docs/SYSTEM_DESIGN_PLAN.md`
+  - `docs/external_apis.md/jaseci_api.md`
+- Outputs/artifacts expected (files/endpoints/tests/docs): typed `RemediationPlan` generation path and plan-stage tests.
+- FR/NFR coverage for this prompt: FR-06; NFR-P-02, NFR-R-03.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): plan generation tests for supported incident types and unsupported fail-closed mapping.
+  - Integration tests to add/update (if applicable): none.
+  - Required mocks/test doubles and boundaries: mocked incident hypotheses only.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): missing hypothesis, low-confidence hypothesis, unsupported incident type.
+- Acceptance checks (clear pass/fail criteria): `plan_walker` outputs valid typed plan for supported inputs and deterministic fail-closed status for unsupported inputs.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=90% for planning stage logic.
+- Dependency/gating rule (what must be true before running this prompt): PR2-01 complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-INFRA-01.md`.
+- Foundation handling source: `Mock`.
+
+### Prompt PR2-03 - Policy Engine and Approval-Gate Evaluation
+- Objective (single responsibility only): implement policy evaluation for allowlist, confidence threshold, and approval requirement with explicit decision states.
+- Components touched:
+  - policy decision logic and enums/contracts
+  - approval pause contract handler
+- Boundary constraints:
+  - Allowed to touch: policy gate and approval-state contract.
+  - Must-Not-Touch: action execution internals and post-action graph mutation.
+- Inputs required (from system design docs and prior prompt outputs): PR2-02 typed plans, policy constraints from Step 1.3.
+- External references required for this prompt (if any):
+  - `docs/SYSTEM_DESIGN_PLAN.md`
+  - `docs/external_apis.md/jaseci_api.md`
+- Outputs/artifacts expected (files/endpoints/tests/docs): policy gate decision module returning `PASS`/`POLICY_BLOCKED`/`APPROVAL_REQUIRED`.
+- FR/NFR coverage for this prompt: FR-07, FR-08; NFR-S-01, NFR-S-02, NFR-S-03, NFR-R-03.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): allowlist pass/fail, threshold boundary, approval-required branches.
+  - Integration tests to add/update (if applicable): approval pause flow contract test.
+  - Required mocks/test doubles and boundaries: mocked plan/action proposals and policy node values.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): empty allowlist, threshold equality, missing approval token.
+- Acceptance checks (clear pass/fail criteria): policy decision outputs are deterministic, typed, and block unsafe execution paths.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=90% for policy evaluation logic.
+- Dependency/gating rule (what must be true before running this prompt): PR2-02 complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-INFRA-01.md`.
+- Foundation handling source: `Mock`.
+
+### Prompt PR2-04 - Bounded `execute_walker` Allowlisted Action Execution
+- Objective (single responsibility only): implement `execute_walker` to run only hardcoded allowlisted actions when policy decision is `PASS`.
+- Components touched:
+  - `execute_walker` action dispatch
+  - bounded action adapter wrappers
+- Boundary constraints:
+  - Allowed to touch: execution stage and allowlist-enforced dispatch.
+  - Must-Not-Touch: verification/rollback/audit features from `SLICE-OPS-03`.
+- Inputs required (from system design docs and prior prompt outputs): PR2-03 policy decisions and approved remediation actions.
+- External references required for this prompt (if any):
+  - `docs/SYSTEM_DESIGN_PLAN.md`
+  - `docs/external_apis.md/jaseci_api.md`
+- Outputs/artifacts expected (files/endpoints/tests/docs): execution stage that emits typed `ActionResult` entries.
+- FR/NFR coverage for this prompt: FR-09; NFR-S-01, NFR-S-02, NFR-R-03.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): allowlisted execution success, blocked action rejection, forced action failure handling.
+  - Integration tests to add/update (if applicable): end-to-end policy-pass execute path.
+  - Required mocks/test doubles and boundaries: mocked operational tool adapters (`shift_traffic`, `set_deployment_status`, `rollback_config`).
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): empty action list, disallowed action type, adapter exception.
+- Acceptance checks (clear pass/fail criteria): only allowlisted actions execute; non-allowlisted actions are rejected with typed failure.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=90% for execution dispatch logic.
+- Dependency/gating rule (what must be true before running this prompt): PR2-03 complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-INFRA-01.md`.
+- Foundation handling source: `Mock`.
+
+### Prompt PR2-05 - Graph State Mutation After Action Execution
+- Objective (single responsibility only): update incident/deployment/route graph state deterministically after each action result.
+- Components touched:
+  - graph mutation helpers
+  - incident state transition fields for execution output
+- Boundary constraints:
+  - Allowed to touch: post-action state update layer and response projection fields.
+  - Must-Not-Touch: planning logic, policy rules, verification/rollback/audit behavior.
+- Inputs required (from system design docs and prior prompt outputs): PR2-04 `ActionResult` outputs and baseline entity schema contracts.
+- External references required for this prompt (if any):
+  - `docs/SYSTEM_DESIGN_PLAN.md`
+  - `docs/external_apis.md/jaseci_api.md`
+- Outputs/artifacts expected (files/endpoints/tests/docs): state mutation path + tests asserting graph consistency after each executed action.
+- FR/NFR coverage for this prompt: FR-10; NFR-R-03, NFR-P-02.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): action-to-state mapping tests per supported action type.
+  - Integration tests to add/update (if applicable): execute flow state projection assertions.
+  - Required mocks/test doubles and boundaries: mocked action results and graph nodes.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): partial action success, repeated action application, missing node references.
+- Acceptance checks (clear pass/fail criteria): graph state reflects action results deterministically and remains queryable for downstream slices.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=85% for state mutation helpers.
+- Dependency/gating rule (what must be true before running this prompt): PR2-04 complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-INFRA-01.md`.
+- Foundation handling source: `Mock`.
+
+### Prompt PR2-06 - Execute API Contract + Slice Integration Verification
+- Objective (single responsibility only): expose and verify API contract for plan-policy-execute outcomes including approval and blocked paths.
+- Components touched:
+  - `main.jac` execute endpoint contract
+  - integration test suites and status evidence hooks
+- Boundary constraints:
+  - Allowed to touch: execute endpoint response contract and test artifacts.
+  - Must-Not-Touch: out-of-scope verify/rollback/audit implementation.
+- Inputs required (from system design docs and prior prompt outputs): PR2-01..PR2-05 outputs; Step 3.0 test baseline scripts.
+- External references required for this prompt (if any):
+  - `docs/SYSTEM_DESIGN_PLAN.md`
+  - `docs/external_apis.md/jaseci_api.md`
+  - `docs/external_apis.md/vLLM.md`
+- Outputs/artifacts expected (files/endpoints/tests/docs): execute endpoint contract validation for success, policy-blocked, approval-required, and action-failure paths.
+- FR/NFR coverage for this prompt: FR-06, FR-07, FR-08, FR-09, FR-10; NFR-S-01/02/03, NFR-R-03, NFR-P-02.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): execute request validation and status contract tests.
+  - Integration tests to add/update (if applicable): full matrix for pass/block/approval/failure flows.
+  - Required mocks/test doubles and boundaries: mocked upstream triage contract fixture and bounded action adapter fixtures only.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): missing `incident_id`, invalid approval token shape, unsupported action in plan output.
+- Acceptance checks (clear pass/fail criteria): endpoint contracts are deterministic and cover all policy/execution outcomes in typed form.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=85% for endpoint contract and flow-validation logic.
+- Dependency/gating rule (what must be true before running this prompt): PR2-05 complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-INFRA-01.md`.
+- Foundation handling source: `Mock`.
+
+### Chain-level completion checks
+- All included FRs mapped to at least one prompt: Pass.
+- Relevant NFR constraints mapped across prompts: Pass.
+- Required foundation dependencies from Step 3.2 are represented by explicit prompt(s) or explicit `Mock` handling prompts before strategy implementation prompts: Pass (`PR2-01` and referenced `Mock` handling through chain).
+- All logic-changing prompts include explicit unit-test additions/updates: Pass.
+- All prompts touching external framework/runtime/API behavior include the required source references from Steps 3.2-3.3.1: Pass.
+- No out-of-scope FR implementation included: Pass.
 
 ## 3.5 Prompt Execution Reports
 - Not started.
