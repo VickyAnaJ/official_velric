@@ -1425,10 +1425,102 @@ cl def:pub app() -> JsxElement {
     has incident_id: str = "";
     has incident: dict = {};
     has loading: bool = True;
+    has sev_color: str = "#718096";
+    has stat_color: str = "#718096";
+    has pol_color: str = "#718096";
+    has ver_color: str = "#e53e3e";
+    has rb_color: str = "#718096";
+    has hyp_type: str = "";
+    has hyp_cause: str = "";
+    has hyp_conf: str = "0";
+    has plan_count: str = "0";
+    has pol_status: str = "N/A";
+    has ver_status: str = "N/A";
+    has rb_status: str = "not_needed";
+    has actions_text: str = "No actions executed";
+    has audit_text: str = "No audit entries";
+    has pct_saved: str = "0";
+    has mttr_recovery: str = "0";
+    has mttr_baseline: str = "0";
+    has mttr_saved: str = "0";
+    has mttr_mode: str = "";
+    has inc_id: str = "";
+    has inc_severity: str = "";
+    has inc_status: str = "";
+    has inc_stage: str = "";
+    has inc_signals: str = "";
+
+    def extract_display() -> None {
+        if not incident { return; }
+        inc_id = incident["incident_id"] if "incident_id" in incident else "";
+        inc_severity = incident["severity"] if "severity" in incident else "";
+        inc_status = incident["status"] if "status" in incident else "";
+        inc_stage = incident["current_stage"] if "current_stage" in incident else "";
+        sigs = incident["primary_signals"] if "primary_signals" in incident else [];
+        inc_signals = ", ".join(sigs) if sigs else "";
+
+        sev_color = "#e53e3e" if inc_severity == "critical" else ("#dd6b20" if inc_severity == "high" else "#718096");
+        stat_color = "#38a169" if inc_status == "resolved" else ("#e53e3e" if inc_status == "active" else "#718096");
+
+        hyp = incident["hypothesis"] if "hypothesis" in incident else {};
+        hyp_type = hyp["incident_type"] if hyp and "incident_type" in hyp else "";
+        hyp_cause = hyp["root_cause"] if hyp and "root_cause" in hyp else "";
+        hyp_conf = str(hyp["confidence"]) if hyp and "confidence" in hyp else "0";
+
+        plan = incident["plan"] if "plan" in incident else {};
+        acts = plan["actions"] if plan and "actions" in plan else [];
+        plan_count = str(len(acts));
+
+        pd = incident["policy_decision"] if "policy_decision" in incident else {};
+        pol_status = pd["status"] if pd and "status" in pd else "N/A";
+        pol_color = "#38a169" if pol_status == "PASS" else ("#e53e3e" if pol_status == "POLICY_BLOCKED" else "#dd6b20");
+
+        ver = incident["verification"] if "verification" in incident else {};
+        ver_passed = ver["passed"] if ver and "passed" in ver else False;
+        ver_status_raw = ver["status"] if ver and "status" in ver else "N/A";
+        ver_status = ver_status_raw.upper() if ver_status_raw else "N/A";
+        ver_color = "#38a169" if ver_passed else "#e53e3e";
+
+        rb = incident["rollback"] if "rollback" in incident else {};
+        rb_triggered = rb["triggered"] if rb and "triggered" in rb else False;
+        rb_status = rb["status"] if rb and "status" in rb else "not_needed";
+        rb_color = "#e53e3e" if rb_triggered else "#718096";
+
+        action_results = incident["action_results"] if "action_results" in incident else [];
+        action_lines = [];
+        for a in action_results {
+            a_status = a["status"] if "status" in a else "";
+            a_type = a["action_type"] if "action_type" in a else "";
+            a_target = a["target"] if "target" in a else "";
+            mark = "+" if a_status == "succeeded" else "x";
+            action_lines.append(mark + " " + a_type + " -> " + a_target);
+        }
+        actions_text = "\n".join(action_lines) if action_lines else "No actions executed";
+
+        audit_entries = incident["audit"] if "audit" in incident else [];
+        audit_lines = [];
+        for entry in audit_entries {
+            e_step = entry["step"] if "step" in entry else "";
+            e_summary = entry["plain_summary"] if "plain_summary" in entry else "";
+            audit_lines.append("[" + e_step.upper() + "] " + e_summary);
+        }
+        audit_text = "\n".join(audit_lines) if audit_lines else "No audit entries";
+
+        mttr = incident["mttr"] if "mttr" in incident else {};
+        recovery = mttr["time_to_recovery_seconds"] if mttr and "time_to_recovery_seconds" in mttr else 0;
+        baseline = mttr["manual_baseline_seconds"] if mttr and "manual_baseline_seconds" in mttr else 1800;
+        saved = mttr["seconds_saved_vs_manual"] if mttr and "seconds_saved_vs_manual" in mttr else 0;
+        mttr_recovery = str(recovery);
+        mttr_baseline = str(baseline);
+        mttr_saved = str(saved);
+        mttr_mode = mttr["resolution_mode"] if mttr and "resolution_mode" in mttr else "";
+        pct_saved = str(round((saved / baseline) * 100)) if baseline > 0 else "0";
+    }
 
     async def refresh_incident() -> None {
         if incident_id != "" {
             incident = await get_incident_state(incident_id);
+            extract_display();
         }
     }
 
@@ -1439,6 +1531,7 @@ cl def:pub app() -> JsxElement {
         incident = seed;
         result = await execute_incident(seed["incident_id"]);
         incident = result;
+        extract_display();
         loading = False;
     }
 
@@ -1448,6 +1541,7 @@ cl def:pub app() -> JsxElement {
         incident_id = seed["incident_id"];
         result = await execute_incident(seed["incident_id"], force_verification_failure=True);
         incident = result;
+        extract_display();
         loading = False;
     }
 
@@ -1457,6 +1551,7 @@ cl def:pub app() -> JsxElement {
         incident_id = seed["incident_id"];
         result = await execute_incident(seed["incident_id"], confidence=0.5);
         incident = result;
+        extract_display();
         loading = False;
     }
 
@@ -1472,138 +1567,14 @@ cl def:pub app() -> JsxElement {
         return lambda -> None { clearInterval(interval); };
     }, [incident_id]);
 
-    def get_severity_color() -> str {
-        if incident and incident.get("severity", "") == "critical" { return "#e53e3e"; }
-        if incident and incident.get("severity", "") == "high" { return "#dd6b20"; }
-        return "#718096";
-    }
-
-    def get_status_color() -> str {
-        if incident and incident.get("status", "") == "resolved" { return "#38a169"; }
-        if incident and incident.get("status", "") == "active" { return "#e53e3e"; }
-        return "#718096";
-    }
-
-    def get_policy_color() -> str {
-        if not incident { return "#718096"; }
-        pd = incident.get("policy_decision", None);
-        if not pd { return "#718096"; }
-        pol = pd.get("status", "");
-        if pol == "PASS" { return "#38a169"; }
-        if pol == "POLICY_BLOCKED" { return "#e53e3e"; }
-        return "#dd6b20";
-    }
-
-    def get_verify_color() -> str {
-        if not incident { return "#e53e3e"; }
-        v = incident.get("verification", None);
-        if v and v.get("passed", False) { return "#38a169"; }
-        return "#e53e3e";
-    }
-
-    def safe_hyp(key: str, fallback: str = "") -> str {
-        if not incident { return fallback; }
-        h = incident.get("hypothesis", None);
-        if not h { return fallback; }
-        return str(h.get(key, fallback));
-    }
-
-    def safe_plan_action_count() -> str {
-        if not incident { return "0"; }
-        p = incident.get("plan", None);
-        if not p { return "0"; }
-        acts = p.get("actions", []);
-        return str(len(acts));
-    }
-
-    def safe_policy_status() -> str {
-        if not incident { return "N/A"; }
-        pd = incident.get("policy_decision", None);
-        if not pd { return "N/A"; }
-        return pd.get("status", "N/A");
-    }
-
-    def safe_verify_status() -> str {
-        if not incident { return "N/A"; }
-        v = incident.get("verification", None);
-        if not v { return "N/A"; }
-        return v.get("status", "N/A").upper();
-    }
-
-    def safe_rollback_triggered() -> bool {
-        if not incident { return False; }
-        rb = incident.get("rollback", None);
-        if not rb { return False; }
-        return rb.get("triggered", False);
-    }
-
-    def safe_rollback_status() -> str {
-        if not incident { return "not_needed"; }
-        rb = incident.get("rollback", None);
-        if not rb { return "not_needed"; }
-        return rb.get("status", "not_needed");
-    }
-
-    def safe_mttr(key: str, fallback: int = 0) -> str {
-        if not incident { return str(fallback); }
-        m = incident.get("mttr", None);
-        if not m { return str(fallback); }
-        return str(m.get(key, fallback));
-    }
-
-    def safe_mttr_mode() -> str {
-        if not incident { return ""; }
-        m = incident.get("mttr", None);
-        if not m { return ""; }
-        return m.get("resolution_mode", "");
-    }
-
-    def format_actions() -> str {
-        if not incident { return "No actions executed"; }
-        results = incident.get("action_results", []);
-        if not results { return "No actions executed"; }
-        lines = [];
-        for a in results {
-            mark = "+" if a.get("status", "") == "succeeded" else "x";
-            lines.append(mark + " " + a.get("action_type", "") + " -> " + a.get("target", ""));
-        }
-        if not lines { return "No actions executed"; }
-        return "\n".join(lines);
-    }
-
-    def format_audit() -> str {
-        if not incident { return "No audit entries"; }
-        entries = incident.get("audit", []);
-        if not entries { return "No audit entries"; }
-        lines = [];
-        for entry in entries {
-            lines.append("[" + entry.get("step", "").upper() + "] " + entry.get("plain_summary", ""));
-        }
-        if not lines { return "No audit entries"; }
-        return "\n".join(lines);
-    }
-
-    def get_pct_saved() -> int {
-        if not incident { return 0; }
-        mttr = incident.get("mttr", None);
-        if not mttr { return 0; }
-        saved = mttr.get("seconds_saved_vs_manual", 0);
-        baseline = mttr.get("manual_baseline_seconds", 1800);
-        if baseline > 0 { return round((saved / baseline) * 100); }
-        return 0;
-    }
-
     page_style = {"fontFamily": "'Segoe UI', system-ui, sans-serif", "backgroundColor": "#0f1117", "color": "#e2e8f0", "minHeight": "100vh", "padding": "20px 24px"};
-    container_style = {"maxWidth": "1400px", "margin": "0 auto"};
-    header_style = {"display": "flex", "alignItems": "center", "justifyContent": "space-between", "marginBottom": "20px", "borderBottom": "1px solid #2d3748", "paddingBottom": "16px"};
-    btn_blue = {"padding": "8px 16px", "fontSize": "13px", "fontWeight": "600", "backgroundColor": "#3182ce", "color": "#fff", "border": "none", "borderRadius": "6px", "cursor": "pointer"};
-    btn_red = {"padding": "8px 16px", "fontSize": "13px", "fontWeight": "600", "backgroundColor": "#e53e3e", "color": "#fff", "border": "none", "borderRadius": "6px", "cursor": "pointer"};
-    btn_orange = {"padding": "8px 16px", "fontSize": "13px", "fontWeight": "600", "backgroundColor": "#dd6b20", "color": "#fff", "border": "none", "borderRadius": "6px", "cursor": "pointer"};
     card_style = {"backgroundColor": "#1a202c", "borderRadius": "10px", "padding": "16px", "border": "1px solid #2d3748"};
-    grid_style = {"display": "grid", "gridTemplateColumns": "1fr 1fr 1fr 1fr", "gap": "12px", "marginBottom": "16px"};
     label_style = {"fontSize": "11px", "fontWeight": "700", "textTransform": "uppercase", "color": "#718096", "letterSpacing": "1px", "marginBottom": "12px"};
     detail_style = {"fontSize": "12px", "color": "#a0aec0", "marginTop": "4px"};
     pre_style = {"fontSize": "12px", "color": "#a0aec0", "whiteSpace": "pre-wrap", "margin": "0", "lineHeight": "1.6", "fontFamily": "'SF Mono', 'Fira Code', monospace"};
+    btn_blue = {"padding": "8px 16px", "fontSize": "13px", "fontWeight": "600", "backgroundColor": "#3182ce", "color": "#fff", "border": "none", "borderRadius": "6px", "cursor": "pointer"};
+    btn_red = {"padding": "8px 16px", "fontSize": "13px", "fontWeight": "600", "backgroundColor": "#e53e3e", "color": "#fff", "border": "none", "borderRadius": "6px", "cursor": "pointer"};
+    btn_orange = {"padding": "8px 16px", "fontSize": "13px", "fontWeight": "600", "backgroundColor": "#dd6b20", "color": "#fff", "border": "none", "borderRadius": "6px", "cursor": "pointer"};
 
     if loading {
         return (
@@ -1616,22 +1587,10 @@ cl def:pub app() -> JsxElement {
         );
     }
 
-    if not incident {
-        return (
-            <div style={page_style}>
-                <div style={{"textAlign": "center", "paddingTop": "120px"}}>
-                    <div style={{"fontSize": "28px", "fontWeight": "700", "color": "#fff", "marginBottom": "12px"}}>Ops Graph</div>
-                    <div style={{"fontSize": "14px", "color": "#718096"}}>No incident loaded</div>
-                    <button onClick={run_pipeline} style={btn_blue}>Trigger Incident</button>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div style={page_style}>
-            <div style={container_style}>
-                <div style={header_style}>
+            <div style={{"maxWidth": "1400px", "margin": "0 auto"}}>
+                <div style={{"display": "flex", "alignItems": "center", "justifyContent": "space-between", "marginBottom": "20px", "borderBottom": "1px solid #2d3748", "paddingBottom": "16px"}}>
                     <div>
                         <h1 style={{"margin": "0", "fontSize": "28px", "fontWeight": "700", "color": "#fff"}}>Ops Graph</h1>
                         <p style={{"margin": "4px 0 0 0", "fontSize": "13px", "color": "#718096"}}>Walker-Native Inference Incident Response</p>
@@ -1643,53 +1602,53 @@ cl def:pub app() -> JsxElement {
                     </div>
                 </div>
 
-                <div style={grid_style}>
+                <div style={{"display": "grid", "gridTemplateColumns": "1fr 1fr 1fr 1fr", "gap": "12px", "marginBottom": "16px"}}>
                     <div style={card_style}>
                         <div style={label_style}>Incident</div>
-                        <div style={{"fontSize": "18px", "fontWeight": "700", "color": "#fff", "marginBottom": "8px"}}>{incident.get("incident_id", "")}</div>
+                        <div style={{"fontSize": "18px", "fontWeight": "700", "color": "#fff", "marginBottom": "8px"}}>{inc_id}</div>
                         <div style={{"display": "flex", "gap": "8px", "marginBottom": "10px"}}>
-                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": get_severity_color(), "color": "#fff"}}>{incident.get("severity", "").upper()}</span>
-                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": get_status_color(), "color": "#fff"}}>{incident.get("status", "").upper()}</span>
+                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": sev_color, "color": "#fff"}}>{inc_severity.upper()}</span>
+                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": stat_color, "color": "#fff"}}>{inc_status.upper()}</span>
                         </div>
-                        <div style={detail_style}>Stage: <span style={{"color": "#e2e8f0", "fontWeight": "600"}}>{incident.get("current_stage", "")}</span></div>
-                        <div style={detail_style}>Signals: <span style={{"color": "#e2e8f0"}}>{", ".join(incident.get("primary_signals", []))}</span></div>
+                        <div style={detail_style}>Stage: <span style={{"color": "#e2e8f0", "fontWeight": "600"}}>{inc_stage}</span></div>
+                        <div style={detail_style}>Signals: <span style={{"color": "#e2e8f0"}}>{inc_signals}</span></div>
                     </div>
 
                     <div style={card_style}>
                         <div style={label_style}>Triage + Plan</div>
-                        <div style={{"fontSize": "14px", "fontWeight": "700", "color": "#63b3ed", "marginBottom": "6px"}}>{safe_hyp("incident_type")}</div>
-                        <div style={{"fontSize": "12px", "color": "#a0aec0", "marginBottom": "10px", "lineHeight": "1.4"}}>{safe_hyp("root_cause")}</div>
-                        <div style={detail_style}>Confidence: <span style={{"color": "#48bb78", "fontWeight": "700"}}>{safe_hyp("confidence", "0")}</span></div>
-                        <div style={detail_style}>Planned actions: <span style={{"color": "#e2e8f0"}}>{safe_plan_action_count()}</span></div>
+                        <div style={{"fontSize": "14px", "fontWeight": "700", "color": "#63b3ed", "marginBottom": "6px"}}>{hyp_type}</div>
+                        <div style={{"fontSize": "12px", "color": "#a0aec0", "marginBottom": "10px", "lineHeight": "1.4"}}>{hyp_cause}</div>
+                        <div style={detail_style}>Confidence: <span style={{"color": "#48bb78", "fontWeight": "700"}}>{hyp_conf}</span></div>
+                        <div style={detail_style}>Planned actions: <span style={{"color": "#e2e8f0"}}>{plan_count}</span></div>
                     </div>
 
                     <div style={card_style}>
                         <div style={label_style}>Execution</div>
                         <div style={{"marginBottom": "10px"}}>
-                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": get_policy_color(), "color": "#fff"}}>Policy: {safe_policy_status()}</span>
+                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": pol_color, "color": "#fff"}}>Policy: {pol_status}</span>
                         </div>
-                        <pre style={pre_style}>{format_actions()}</pre>
+                        <pre style={pre_style}>{actions_text}</pre>
                         <div style={{"fontSize": "12px", "marginTop": "10px"}}>
                             <span style={{"color": "#a0aec0"}}>Verify: </span>
-                            <span style={{"color": get_verify_color(), "fontWeight": "700"}}>{safe_verify_status()}</span>
+                            <span style={{"color": ver_color, "fontWeight": "700"}}>{ver_status}</span>
                         </div>
-                        <div style={{"fontSize": "12px", "marginTop": "4px", "color": "#e53e3e" if safe_rollback_triggered() else "#718096", "fontWeight": "600"}}>Rollback: {safe_rollback_status()}</div>
+                        <div style={{"fontSize": "12px", "marginTop": "4px", "color": rb_color, "fontWeight": "600"}}>Rollback: {rb_status}</div>
                     </div>
 
                     <div style={card_style}>
                         <div style={label_style}>MTTR</div>
-                        <div style={{"fontSize": "36px", "fontWeight": "800", "color": "#48bb78", "lineHeight": "1"}}>{str(get_pct_saved())}%</div>
+                        <div style={{"fontSize": "36px", "fontWeight": "800", "color": "#48bb78", "lineHeight": "1"}}>{pct_saved}%</div>
                         <div style={{"fontSize": "11px", "color": "#718096", "marginBottom": "14px"}}>faster than manual</div>
-                        <div style={detail_style}>Recovery: <span style={{"color": "#e2e8f0", "fontWeight": "600"}}>{safe_mttr("time_to_recovery_seconds")}s</span></div>
-                        <div style={detail_style}>Manual baseline: <span style={{"color": "#718096"}}>{safe_mttr("manual_baseline_seconds")}s</span></div>
-                        <div style={detail_style}>Time saved: <span style={{"color": "#48bb78", "fontWeight": "600"}}>{safe_mttr("seconds_saved_vs_manual")}s</span></div>
-                        <div style={detail_style}>Mode: <span style={{"color": "#e2e8f0"}}>{safe_mttr_mode()}</span></div>
+                        <div style={detail_style}>Recovery: <span style={{"color": "#e2e8f0", "fontWeight": "600"}}>{mttr_recovery}s</span></div>
+                        <div style={detail_style}>Manual baseline: <span style={{"color": "#718096"}}>{mttr_baseline}s</span></div>
+                        <div style={detail_style}>Time saved: <span style={{"color": "#48bb78", "fontWeight": "600"}}>{mttr_saved}s</span></div>
+                        <div style={detail_style}>Mode: <span style={{"color": "#e2e8f0"}}>{mttr_mode}</span></div>
                     </div>
                 </div>
 
                 <div style={card_style}>
                     <div style={label_style}>Audit Timeline</div>
-                    <pre style={pre_style}>{format_audit()}</pre>
+                    <pre style={pre_style}>{audit_text}</pre>
                 </div>
             </div>
         </div>
