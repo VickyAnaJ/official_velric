@@ -212,7 +212,85 @@
   - Selected strategy preserves Step 1.3 component boundaries, ordered data flow, communication contracts, failure handling, and Jac/Jaseci load-bearing runtime choices.
 
 ## 3.3.1 Pattern Evaluation + Final Convergence
-- Not started.
+### Pattern P1 - Sequential Stage Handlers with Typed Contracts (Selected)
+- What this pattern does (one sentence, plain language): implement `S2` with explicit stage handlers (`plan`, `policy`, `execute`) that exchange typed records and update state in one deterministic sequence.
+- References selected Strategy ID from Step 3.3: `S2`
+- External source references used:
+  - `docs/SYSTEM_DESIGN_PLAN.md`
+  - `docs/external_apis.md/jaseci_api.md`
+  - `docs/external_apis.md/vLLM.md`
+- Primary implementation shape (how this pattern structures the code path): `plan_walker` emits `RemediationPlan` -> policy evaluator emits decision (`PASS`/`POLICY_BLOCKED`/`APPROVAL_REQUIRED`) -> `execute_walker` runs allowlisted actions -> graph state updated per action result.
+- Contract preservation check:
+  - Does this pattern preserve the same component boundaries? Yes.
+  - Does this pattern preserve the approved data flow? Yes.
+  - Does this pattern preserve approved communication contracts (input/output JSON and compatibility)? Yes, additive staged response fields.
+  - Does this pattern preserve failure-mode/fallback behavior? Yes, explicit typed error states and approval pause behavior.
+  - Does this pattern preserve security boundary checks (RBAC/safe field exposure/auth flow)? Yes for slice scope; only allowlisted action exposure.
+- Code Design Evaluation Criteria scoring (Logic Unification / Branching Quality / Artificial Complexity): 9/10, 8/10, 8/10.
+- FR/NFR preservation summary for the active slice for the current owner: full FR-06..10 coverage with strong NFR-S-01/02/03, NFR-R-03, NFR-P-02 alignment.
+- Expected validation signals and anti-signals:
+  - Expected signals: single ordered flow, deterministic policy outcomes, typed action results, explicit pause path.
+  - Expected anti-signals: duplicated policy checks in execute stage, hidden action side effects.
+- Observed evidence references: Step `3.2` mock dependencies and Step `3.3` strategy `S2` selected for boundary-safe staged orchestration.
+- Match/Mismatch summary: Match.
+- Implementation complexity rating (Low/Medium/High) with rationale: Medium; straightforward staged composition with explicit contracts.
+- Pattern verdict (Accept/Reject) with reason: Accept; best fit with lowest artificial complexity and strongest boundary preservation.
+
+### Pattern P2 - Rule Matrix Controller
+- What this pattern does (one sentence, plain language): implement `S2` using one central rule matrix that maps incident/policy states to action and graph update decisions.
+- References selected Strategy ID from Step 3.3: `S2`
+- External source references used:
+  - `docs/SYSTEM_DESIGN_PLAN.md`
+  - `docs/external_apis.md/jaseci_api.md`
+  - `docs/external_apis.md/vLLM.md`
+- Primary implementation shape (how this pattern structures the code path): a controller table evaluates all policy/execution conditions and dispatches action handlers based on matrix entries.
+- Contract preservation check:
+  - Does this pattern preserve the same component boundaries? Partially.
+  - Does this pattern preserve the approved data flow? Partially; policy and execution concerns are merged in controller logic.
+  - Does this pattern preserve approved communication contracts (input/output JSON and compatibility)? Yes externally, but internal mapping is less explicit.
+  - Does this pattern preserve failure-mode/fallback behavior? Partial; harder to trace which rule emitted a fallback state.
+  - Does this pattern preserve security boundary checks (RBAC/safe field exposure/auth flow)? Partial; allowlist logic is embedded in matrix entries.
+- Code Design Evaluation Criteria scoring (Logic Unification / Branching Quality / Artificial Complexity): 6/10, 5/10, 4/10.
+- FR/NFR preservation summary for the active slice for the current owner: functional FR coverage possible, but weaker NFR-S and NFR-R clarity due to matrix complexity.
+- Expected validation signals and anti-signals:
+  - Expected signals: centralized decision table.
+  - Expected anti-signals: opaque branching and increased debugging overhead.
+- Observed evidence references: workflow and architecture emphasize explicit stage ownership and deterministic contracts, not large rule matrices.
+- Match/Mismatch summary: Mismatch due to artificial complexity.
+- Implementation complexity rating (Low/Medium/High) with rationale: High; branching and test matrix grow quickly.
+- Pattern verdict (Accept/Reject) with reason: Reject; increases artificial complexity without clear architectural benefit.
+
+### Pattern P3 - Split Async Stage Queue
+- What this pattern does (one sentence, plain language): implement `S2` with asynchronous stage queues where plan, policy, and execute stages run as separate queued workers.
+- References selected Strategy ID from Step 3.3: `S2`
+- External source references used:
+  - `docs/SYSTEM_DESIGN_PLAN.md`
+  - `docs/external_apis.md/jaseci_api.md`
+  - `docs/external_apis.md/vLLM.md`
+- Primary implementation shape (how this pattern structures the code path): enqueue stage jobs and process them asynchronously with projected incident state updates.
+- Contract preservation check:
+  - Does this pattern preserve the same component boundaries? Yes in theory.
+  - Does this pattern preserve the approved data flow? Partially; introduces eventual-consistency timing not required by current design phase.
+  - Does this pattern preserve approved communication contracts (input/output JSON and compatibility)? No, requires job-token and polling contract changes.
+  - Does this pattern preserve failure-mode/fallback behavior? Partial; queue timeout/retry states add new failure classes.
+  - Does this pattern preserve security boundary checks (RBAC/safe field exposure/auth flow)? Potentially, but requires extra queue authorization controls.
+- Code Design Evaluation Criteria scoring (Logic Unification / Branching Quality / Artificial Complexity): 7/10, 6/10, 3/10.
+- FR/NFR preservation summary for the active slice for the current owner: can cover FRs, but weakens NFR-P-02 and operational simplicity goals.
+- Expected validation signals and anti-signals:
+  - Expected signals: decoupled worker scalability.
+  - Expected anti-signals: additional infra contracts and harder deterministic testing.
+- Observed evidence references: Step `3.2` has no queue dependency claimed and local Jac bootstrap favors direct staged flow.
+- Match/Mismatch summary: Mismatch for current dependency and phase constraints.
+- Implementation complexity rating (Low/Medium/High) with rationale: High; introduces out-of-scope infrastructure and contract churn.
+- Pattern verdict (Accept/Reject) with reason: Reject; not justified for current slice objectives and collaboration constraints.
+
+### Final pattern convergence block
+- Rejected Pattern IDs + rule-out reason:
+  - `P2`: rejected due to high artificial branching complexity and weaker policy/audit traceability.
+  - `P3`: rejected due to async/infra overhead and communication contract drift.
+- Selected Pattern ID: `P1`
+- Confidence score (%): 93%
+- Decision rationale (why it best implements the selected strategy with lowest artificial complexity): `P1` keeps strategy `S2` explicit, deterministic, and collaboration-safe while preserving clear security gates and failure contracts.
 
 ## 3.4 Prompt Chain
 - Not started.
