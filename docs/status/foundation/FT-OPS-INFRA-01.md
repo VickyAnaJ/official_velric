@@ -3,7 +3,7 @@
 ## Metadata
 - FT_ID: FT-OPS-INFRA-01
 - Owner: anajaramillo
-- Status: [WIP]
+- Status: [Done]
 - Linked Slices: SLICE-OPS-01, SLICE-OPS-02, SLICE-OPS-03
 
 ## What this foundation task does (one sentence, plain language)
@@ -51,5 +51,10 @@ Provides slice-neutral local runtime and infrastructure plumbing contracts neede
 - `python3 -m unittest tests.integration.slice_ops_03.test_verify_to_rollback_to_audit_flow -v` -> Pass.
 
 ## Closure
-- Result: In Progress.
-- Completion evidence pending implementation and verification in later gates.
+- Result: Complete.
+- Completion evidence:
+  - Runtime and API infrastructure wiring is fully exercised across all three closed slices (`SLICE-OPS-01`, `SLICE-OPS-02`, `SLICE-OPS-03`).
+  - Latest closure verification:
+    - `make build` -> Pass.
+    - `./scripts/test.sh` -> Pass.
+    - `./scripts/test_coverage.sh` -> Pass (`38.89%` vs `25.00%` threshold).
