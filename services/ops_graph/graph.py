@@ -1,8 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import asdict, replace
+import time
 
-from .contracts import ActionResult, IncidentHypothesis, IncidentRecord, PolicyDecision, RemediationPlan
+from .contracts import (
+    ActionResult,
+    AuditEntry,
+    IncidentHypothesis,
+    IncidentRecord,
+    MttrSummary,
+    PolicyDecision,
+    RemediationPlan,
+    RollbackResult,
+    VerificationResult,
+)
 
 
 class InMemoryGraphStore:
@@ -34,6 +45,7 @@ class InMemoryGraphStore:
             severity=severity,
             metrics=metrics,
             hypothesis=hypothesis,
+            created_at=time.time(),
         )
         self._incidents[incident_id] = record
         if incident_key:
@@ -59,6 +71,30 @@ class InMemoryGraphStore:
             remediation_plan=plan,
             policy_decision=policy_decision,
             action_results=action_results,
+            execution_completed_at=time.time(),
+        )
+        self._incidents[incident_id] = updated
+        return updated
+
+    def update_lifecycle_state(
+        self,
+        *,
+        incident_id: str,
+        status: str,
+        verification_result: VerificationResult,
+        rollback_result: RollbackResult,
+        audit_entries: list[AuditEntry],
+        mttr_summary: MttrSummary,
+    ) -> IncidentRecord:
+        existing = self._incidents[incident_id]
+        updated = replace(
+            existing,
+            status=status,
+            verification_result=verification_result,
+            rollback_result=rollback_result,
+            audit_entries=[*existing.audit_entries, *audit_entries],
+            mttr_summary=mttr_summary,
+            lifecycle_completed_at=time.time(),
         )
         self._incidents[incident_id] = updated
         return updated

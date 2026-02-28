@@ -4,16 +4,16 @@
 - Date: 2026-02-28
 - Mode: Solo
 - Current Owner: anajaramillo
-- Workflow Baseline: `docs/workflow_hide/workflow.md` (confidential canonical copy)
+- Workflow Baseline: `workflow_hide/workflow.md` (confidential canonical copy)
 - Active `[WIP]` Slice: `SLICE-OPS-03`
-- Current Gate State: Step 3.4 complete for `SLICE-OPS-03` (prompt chain defined); ready for Step 3.5 implementation
+- Current Gate State: Step 3.5 complete for `SLICE-OPS-03` (prompt chain executed); ready for Step 3.6 review
 
 ## Slice Registry
 | Slice ID | Capability Statement | Included FR IDs | Relevant NFR IDs | Dependency Grouping Rationale | Status | Start Gate | Owner | Demo/Test Condition | Detail File | Linked FT_IDs |
 |---|---|---|---|---|---|---|---|---|---|---|
 | SLICE-OPS-01 | Incident intake and typed graph triage for vLLM latency incidents | FR-01, FR-02, FR-03, FR-04, FR-05, FR-16 | NFR-P-01, NFR-P-02, NFR-U-01, NFR-U-02, NFR-R-01, NFR-C-01, NFR-C-02 | Foundational graph + triage behavior is a hard prerequisite for plan/execute/verify pipeline | [Done] | [WIP] | anajaramillo | Trigger incident, ingest metrics, persist typed graph nodes, and return typed triage hypothesis | `docs/status/slices/SLICE-OPS-01.md` | FT-OPS-INFRA-01, FT-OPS-TEST-01 |
 | SLICE-OPS-02 | Policy-gated remediation planning and bounded execution | FR-06, FR-07, FR-08, FR-09, FR-10 | NFR-S-01, NFR-S-02, NFR-S-03, NFR-R-03, NFR-P-02 | Requires triage output contract and typed incident classification from SLICE-OPS-01 | [Done] | [WIP] | anajaramillo | Plan generated + policy gate enforced + allowlisted actions mutate graph safely | `docs/status/slices/SLICE-OPS-02.md` | FT-OPS-INFRA-01 |
-| SLICE-OPS-03 | Verification, rollback safety, audit timeline, and demo visibility | FR-11, FR-12, FR-13, FR-14, FR-15 | NFR-P-03, NFR-P-04, NFR-U-01, NFR-U-02, NFR-R-02 | Depends on execution outputs/action results from SLICE-OPS-02 for end-to-end closure | [WIP] | [WIP] | anajaramillo | Verification pass/fail drives rollback and full audit/MTTR visibility in UI | `docs/status/slices/SLICE-OPS-03.md` | FT-OPS-TEST-01 |
+| SLICE-OPS-03 | Verification, rollback safety, audit timeline, and demo visibility | FR-11, FR-12, FR-13, FR-14, FR-15 | NFR-P-03, NFR-P-04, NFR-U-01, NFR-U-02, NFR-R-02 | Depends on execution outputs/action results from SLICE-OPS-02 for end-to-end closure | [WIP] | [WIP] | anajaramillo | Verification pass/fail drives rollback and full audit/MTTR visibility in UI | `docs/status/slices/SLICE-OPS-03.md` | FT-OPS-INFRA-01, FT-OPS-TEST-01 |
 
 ## Foundation Task Registry
 | FT_ID | Scope/Contract | Status | Owner | Linked Slice IDs | Detail File |
@@ -27,7 +27,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|
 | SLICE-OPS-01 | anajaramillo | Complete (`Ready`) | Complete (`S2`) | Complete (`P1`) | Complete (`PR-01..PR-06`) | Complete (`Done`) | Complete (`Approved`) | Complete (`N/A`) | Complete (`Ready to Close`) | `docs/status/slices/SLICE-OPS-01.md` |
 | SLICE-OPS-02 | anajaramillo | Complete (`Ready`) | Complete (`S2`) | Complete (`P1`) | Complete (`PR2-01..PR2-06`) | Complete (`Done`) | Complete (`Approved`) | Complete (`N/A`) | Complete (`Ready to Close`) | `docs/status/slices/SLICE-OPS-02.md` |
-| SLICE-OPS-03 | anajaramillo | Complete (`Ready`) | Complete (`S2`) | Complete (`P1`) | Complete (`PR3-01..PR3-06`) | Pending | Pending | Pending | Pending | `docs/status/slices/SLICE-OPS-03.md` |
+| SLICE-OPS-03 | anajaramillo | Complete (`Ready`) | Complete (`S2`) | Complete (`P1`) | Complete (`PR3-01..PR3-06`) | Complete (`Done`) | Pending | Pending | Pending | `docs/status/slices/SLICE-OPS-03.md` |
 
 ## Open Blockers/Escalations
 - None. Active dependency gaps are now explicitly claimed as `FT-OPS-INFRA-01` and `FT-OPS-TEST-01`.
@@ -56,7 +56,7 @@
 - IaC baseline scaffolded: `infra/terraform/` with `network`, `cicd`, `security_roles` modules.
 
 ### Documentation lifecycle artifacts
-- Canonical workflow reference (confidential path): `docs/workflow_hide/workflow.md`.
+- Canonical workflow reference (confidential path): `workflow_hide/workflow.md`.
 - Thin ledger: `docs/STATUS.md`.
 - Detailed execution folders: `docs/status/slices/`, `docs/status/foundation/`, `docs/status/_templates/`.
 
@@ -472,3 +472,35 @@
 ### 3.4 Completion verdict
 - Result: Complete.
 - Next step: proceed to Step 3.5 prompt-by-prompt implementation for `SLICE-OPS-03`.
+
+## Step 3.5 Output (`SLICE-OPS-03`)
+### Summary
+- Executed full prompt chain in order: `PR3-01` -> `PR3-02` -> `PR3-03` -> `PR3-04` -> `PR3-05` -> `PR3-06`.
+- Implemented verify/rollback/audit/visibility lifecycle path in `services/ops_graph`:
+  - typed verification and rollback contracts + deterministic evaluators/adapters
+  - append-only audit timeline construction and lifecycle graph updates
+  - outcome orchestrator for `verify -> rollback(if needed) -> audit`
+  - MTTR summary projection and user-facing lifecycle visibility payload
+  - new endpoint `POST /incident/lifecycle` with typed lifecycle outcomes
+- Added `SLICE-OPS-03` test suites:
+  - unit tests for verification, rollback, audit, lifecycle orchestration, visibility projection, lifecycle API contract
+  - integration matrix for verify-success and verify-fail-with-rollback lifecycle paths
+- Appended per-prompt execution reports to `docs/status/slices/SLICE-OPS-03.md`.
+- Updated linked foundation task logs:
+  - `docs/status/foundation/FT-OPS-INFRA-01.md`
+  - `docs/status/foundation/FT-OPS-TEST-01.md`
+
+### Verification evidence
+- Build command:
+  - `make build` -> Pass (placeholder build target).
+- Unit tests:
+  - `./scripts/test_unit.sh` -> Pass (33 tests).
+- Integration tests:
+  - `./scripts/test_integration.sh` -> Pass (11 tests).
+- Coverage gate:
+  - `./scripts/test_coverage.sh` -> Pass (`38.89%` >= threshold `25.00%`).
+
+### 3.5 Completion verdict
+- Result: Complete.
+- Prompt verdicts: `PR3-01` Done, `PR3-02` Done, `PR3-03` Done, `PR3-04` Done, `PR3-05` Done, `PR3-06` Done.
+- Next step: proceed to Step 3.6 slice review for `SLICE-OPS-03`.

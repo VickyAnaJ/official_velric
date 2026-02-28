@@ -4,7 +4,7 @@
 - FT_ID: FT-OPS-INFRA-01
 - Owner: anajaramillo
 - Status: [WIP]
-- Linked Slices: SLICE-OPS-01, SLICE-OPS-02
+- Linked Slices: SLICE-OPS-01, SLICE-OPS-02, SLICE-OPS-03
 
 ## What this foundation task does (one sentence, plain language)
 Provides slice-neutral local runtime and infrastructure plumbing contracts needed for ingestion, graph runtime execution, and future policy/execute flows.
@@ -26,6 +26,11 @@ Provides slice-neutral local runtime and infrastructure plumbing contracts neede
 - Step 3.5 `PR2-02`: implemented bounded action adapter interfaces (`services/ops_graph/executor.py`).
 - Step 3.5 `PR2-05`: extended orchestration and graph update plumbing for plan/policy/execute sequence.
 - Step 3.5 `PR2-06`: added `POST /incident/execute` API path and execution response contracts.
+- Step 3.5 `PR3-01`: extended incident contracts with typed verification result fields and lifecycle metadata.
+- Step 3.5 `PR3-02`: added rollback contracts and inverse action adapter plumbing.
+- Step 3.5 `PR3-03`: added append-only lifecycle audit timeline persistence plumbing.
+- Step 3.5 `PR3-04`: added lifecycle orchestration/state update plumbing (`verify -> rollback -> audit`).
+- Step 3.5 `PR3-06`: added `POST /incident/lifecycle` API path and response contracts for lifecycle outcomes.
 
 ## Verification Evidence
 - Claim recorded in `docs/STATUS.md` Foundation Task Registry.
@@ -38,6 +43,12 @@ Provides slice-neutral local runtime and infrastructure plumbing contracts neede
 - `python3 -m unittest tests.unit.executor.test_allowlist_enforcement -v` -> Pass.
 - `python3 -m unittest tests.unit.orchestrator.test_execute_pipeline_order -v` -> Pass.
 - `python3 -m unittest tests.integration.slice_ops_02.test_plan_policy_execute_flow -v` -> Pass.
+- `python3 -m unittest tests.unit.verification.test_recovery_evaluation -v` -> Pass.
+- `python3 -m unittest tests.unit.rollback.test_inverse_action_mapping -v` -> Pass.
+- `python3 -m unittest tests.unit.audit.test_append_only_timeline -v` -> Pass.
+- `python3 -m unittest tests.unit.lifecycle.test_outcome_orchestrator_paths -v` -> Pass.
+- `python3 -m unittest tests.unit.api.test_lifecycle_endpoint_contract -v` -> Pass.
+- `python3 -m unittest tests.integration.slice_ops_03.test_verify_to_rollback_to_audit_flow -v` -> Pass.
 
 ## Closure
 - Result: In Progress.

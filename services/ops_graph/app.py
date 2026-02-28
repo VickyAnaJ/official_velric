@@ -8,6 +8,7 @@ from typing import Any
 from .config import AppConfig, load_config
 from .executor import ActionAdapter
 from .graph import InMemoryGraphStore, incident_to_response
+from .lifecycle import LifecycleOrchestrator
 from .mock_metrics import generate_metrics_payload
 from .orchestrator import IncidentOrchestrator, MetricsSource, MetricsSourceError
 from .policy import PolicyConfig
@@ -38,6 +39,7 @@ class OpsGraphApp:
             policy_config=policy_config,
             action_adapter=action_adapter,
         )
+        self.lifecycle_orchestrator = LifecycleOrchestrator(self.store)
 
     def get_metrics(self) -> tuple[int, str, str]:
         return 200, "text/plain; version=0.0.4", self.metrics_source.get_payload()
@@ -82,6 +84,23 @@ class OpsGraphApp:
             incident_id=incident_id,
             approval_token=approval_token,
             force_fail=force_fail,
+        )
+        return result.status_code, result.payload
+
+    def process_lifecycle(self, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        incident_id = body.get("incident_id")
+        if not isinstance(incident_id, str) or not incident_id.strip():
+            return 400, {"error": "incident_id is required"}
+
+        observed_metrics = body.get("observed_metrics", {})
+        if not isinstance(observed_metrics, dict):
+            return 400, {"error": "observed_metrics must be an object"}
+        if not observed_metrics:
+            observed_metrics = {"vllm:e2e_request_latency_seconds": 0.2}
+
+        result = self.lifecycle_orchestrator.process_incident(
+            incident_id=incident_id,
+            observed_metrics={k: float(v) for k, v in observed_metrics.items()},
         )
         return result.status_code, result.payload
 
@@ -156,6 +175,15 @@ def build_handler(app: OpsGraphApp):
                     self._write_json(400, {"error": "invalid_json"})
                     return
                 code, payload = app.execute_incident(body)
+                self._write_json(code, payload)
+                return
+            if self.path == "/incident/lifecycle":
+                try:
+                    body = self._read_json()
+                except json.JSONDecodeError:
+                    self._write_json(400, {"error": "invalid_json"})
+                    return
+                code, payload = app.process_lifecycle(body)
                 self._write_json(code, payload)
                 return
             self._write_json(404, {"error": "route_not_found"})

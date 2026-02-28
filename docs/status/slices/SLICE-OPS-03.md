@@ -371,7 +371,161 @@
 - No out-of-scope FR implementation included: Pass.
 
 ## 3.5 Prompt Execution Reports
-Pending Step 3.5.
+### Prompt Execution Report - PR3-01
+- Execution Header:
+  - Slice ID: `SLICE-OPS-03`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR3-01`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass.
+  - Component boundary check: Pass (verification contracts/evaluator scope only).
+- Implementation actions:
+  - Files to create/update: `services/ops_graph/contracts.py`, `services/ops_graph/verification.py`, `tests/unit/verification/test_recovery_evaluation.py`.
+  - Endpoint/schema/interface changes: added typed `VerificationResult` contract.
+  - Data representation changes: verification status/reason and latency threshold comparison fields.
+  - Test artifacts to create/update: verification evaluator unit tests.
+- Verification evidence:
+  - Build/test commands executed: `python3 -m unittest tests.unit.verification.test_recovery_evaluation -v`
+  - Unit-test command(s) for this prompt + result: Pass (2 tests).
+  - Integration-test command(s) for this prompt + result: N/A.
+  - Coverage command/result for affected areas: covered in slice-level coverage gate.
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - Any TODOs explicitly marked as out-of-scope follow-ups: None.
+
+### Prompt Execution Report - PR3-02
+- Execution Header:
+  - Slice ID: `SLICE-OPS-03`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR3-02`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR3-01` complete).
+  - Component boundary check: Pass (rollback contract/adapter scope only).
+- Implementation actions:
+  - Files to create/update: `services/ops_graph/contracts.py`, `services/ops_graph/rollback.py`, `tests/unit/rollback/test_inverse_action_mapping.py`.
+  - Endpoint/schema/interface changes: added typed `RollbackResult` contract and rollback statuses.
+  - Data representation changes: inverse action mapping output for rollback execution.
+  - Test artifacts to create/update: rollback mapping unit tests.
+- Verification evidence:
+  - Build/test commands executed: `python3 -m unittest tests.unit.rollback.test_inverse_action_mapping -v`
+  - Unit-test command(s) for this prompt + result: Pass (2 tests).
+  - Integration-test command(s) for this prompt + result: N/A.
+  - Coverage command/result for affected areas: covered in slice-level coverage gate.
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - Any TODOs explicitly marked as out-of-scope follow-ups: None.
+
+### Prompt Execution Report - PR3-03
+- Execution Header:
+  - Slice ID: `SLICE-OPS-03`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR3-03`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR3-01` complete).
+  - Component boundary check: Pass (audit schema/timeline scope only).
+- Implementation actions:
+  - Files to create/update: `services/ops_graph/contracts.py`, `services/ops_graph/audit.py`, `services/ops_graph/graph.py`, `tests/unit/audit/test_append_only_timeline.py`.
+  - Endpoint/schema/interface changes: added typed `AuditEntry` contract and append-only timeline builder.
+  - Data representation changes: audit timeline entries persisted on incident lifecycle state.
+  - Test artifacts to create/update: audit timeline unit tests.
+- Verification evidence:
+  - Build/test commands executed: `python3 -m unittest tests.unit.audit.test_append_only_timeline -v`
+  - Unit-test command(s) for this prompt + result: Pass (1 test).
+  - Integration-test command(s) for this prompt + result: N/A.
+  - Coverage command/result for affected areas: covered in slice-level coverage gate.
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - Any TODOs explicitly marked as out-of-scope follow-ups: None.
+
+### Prompt Execution Report - PR3-04
+- Execution Header:
+  - Slice ID: `SLICE-OPS-03`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR3-04`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR3-01`, `PR3-02`, `PR3-03` complete).
+  - Component boundary check: Pass (lifecycle orchestration scope only).
+- Implementation actions:
+  - Files to create/update: `services/ops_graph/lifecycle.py`, `services/ops_graph/graph.py`, `tests/unit/lifecycle/test_outcome_orchestrator_paths.py`, `tests/integration/slice_ops_03/test_verify_to_rollback_to_audit_flow.py`.
+  - Endpoint/schema/interface changes: lifecycle orchestration path executes `verify -> rollback(if needed) -> audit`.
+  - Data representation changes: incident lifecycle state now stores verification/rollback outcomes and completion timestamp.
+  - Test artifacts to create/update: lifecycle unit tests + initial integration path coverage.
+- Verification evidence:
+  - Build/test commands executed:
+    - `python3 -m unittest tests.unit.lifecycle.test_outcome_orchestrator_paths -v`
+    - `python3 -m unittest tests.integration.slice_ops_03.test_verify_to_rollback_to_audit_flow -v`
+  - Unit-test command(s) for this prompt + result: Pass (2 tests).
+  - Integration-test command(s) for this prompt + result: Pass (2 tests).
+  - Coverage command/result for affected areas: covered in slice-level coverage gate.
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - Any TODOs explicitly marked as out-of-scope follow-ups: None.
+
+### Prompt Execution Report - PR3-05
+- Execution Header:
+  - Slice ID: `SLICE-OPS-03`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR3-05`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR3-04` complete).
+  - Component boundary check: Pass (visibility and MTTR projection scope only).
+- Implementation actions:
+  - Files to create/update: `services/ops_graph/contracts.py`, `services/ops_graph/visibility.py`, `tests/unit/visibility/test_mttr_projection.py`, `tests/integration/slice_ops_03/test_verify_to_rollback_to_audit_flow.py`.
+  - Endpoint/schema/interface changes: added lifecycle visibility payload summary and typed MTTR fields.
+  - Data representation changes: introduced `MttrSummary` projection on lifecycle completion.
+  - Test artifacts to create/update: MTTR projection unit test + visibility assertions in integration flow.
+- Verification evidence:
+  - Build/test commands executed: `python3 -m unittest tests.unit.visibility.test_mttr_projection -v`
+  - Unit-test command(s) for this prompt + result: Pass (1 test).
+  - Integration-test command(s) for this prompt + result: covered in `PR3-04` and `PR3-06` integration runs.
+  - Coverage command/result for affected areas: covered in slice-level coverage gate.
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - Any TODOs explicitly marked as out-of-scope follow-ups: None.
+
+### Prompt Execution Report - PR3-06
+- Execution Header:
+  - Slice ID: `SLICE-OPS-03`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR3-06`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR3-05` complete).
+  - Component boundary check: Pass (lifecycle API contract verification scope).
+- Implementation actions:
+  - Files to create/update: `services/ops_graph/app.py`, `tests/unit/api/test_lifecycle_endpoint_contract.py`, `tests/integration/slice_ops_03/test_verify_to_rollback_to_audit_flow.py`.
+  - Endpoint/schema/interface changes: added `POST /incident/lifecycle` endpoint with verify/rollback/audit/visibility contract response.
+  - Data representation changes: lifecycle API response now includes `verification_result`, `rollback_result`, `audit_entries`, and `mttr_summary`.
+  - Test artifacts to create/update: lifecycle endpoint unit test + full integration matrix assertions.
+- Verification evidence:
+  - Build/test commands executed:
+    - `make build`
+    - `./scripts/test_unit.sh`
+    - `./scripts/test_integration.sh`
+    - `./scripts/test_coverage.sh`
+  - Unit-test command(s) for this prompt + result: Pass (33 total unit tests).
+  - Integration-test command(s) for this prompt + result: Pass (11 total integration tests).
+  - Coverage command/result for affected areas: Pass (`38.89%` vs threshold `25.00%`).
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - Any TODOs explicitly marked as out-of-scope follow-ups: None.
 
 ## 3.6 Slice Review Output
 Pending Step 3.6.
