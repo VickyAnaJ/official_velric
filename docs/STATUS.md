@@ -184,7 +184,7 @@
 - Notes:
   - `SLICE-OPS-01` Step `3.3` is complete.
   - `SLICE-OPS-03` Step `3.3` is complete.
-  - `SLICE-OPS-02` still needs its Step `3.3` summary reflected here if we want this section fully repository-complete.
+  - `SLICE-OPS-02` canonical Step `3.3` evidence is recorded in `docs/status/slices/SLICE-OPS-02.md`.
 
 ## Step 3.3.1 Output
 ### Pattern selection summary
@@ -204,7 +204,7 @@
 - Notes:
   - `SLICE-OPS-01` Step `3.3.1` is complete.
   - `SLICE-OPS-03` Step `3.3.1` is complete.
-  - `SLICE-OPS-02` still needs its Step `3.3` and Step `3.3.1` summary reflected here if we want this section fully repository-complete.
+  - `SLICE-OPS-02` canonical Step `3.3.1` evidence is recorded in `docs/status/slices/SLICE-OPS-02.md`.
 
 ## Step 3.4 Output
 ### Prompt-chain summary
@@ -235,7 +235,7 @@
 - Notes:
   - `SLICE-OPS-01` Step `3.4` is complete.
   - `SLICE-OPS-03` Step `3.4` is complete.
-  - `SLICE-OPS-02` still needs its Step `3.3`, `3.3.1`, and `3.4` summary reflected here if we want this section fully repository-complete.
+  - `SLICE-OPS-02` canonical Step `3.4` evidence is recorded in `docs/status/slices/SLICE-OPS-02.md`.
 
 ## Step 3.5 Output
 ### Prompt execution summary

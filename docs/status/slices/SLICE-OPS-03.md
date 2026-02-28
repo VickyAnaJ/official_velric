@@ -48,14 +48,14 @@
 ### Shared dependency list
 | Task ID | Current status | Owner | Handling decision | Interface contract reference | Foundation Detail File |
 |---|---|---|---|---|---|
-| FT-OPS-INFRA-01 | [WIP] | Shivaganesh | Mock | shared runtime/bootstrap contract and common endpoint skeleton | `docs/status/foundation/FT-OPS-INFRA-01.md` |
-| FT-OPS-TEST-01 | [WIP] | Keilly | Claim | deterministic test harness and coverage plumbing for lifecycle, audit, and UI state checks | `docs/status/foundation/FT-OPS-TEST-01.md` |
+| FT-OPS-INFRA-01 | [Done] | Shivaganesh | Mock | shared runtime/bootstrap contract and common endpoint skeleton | `docs/status/foundation/FT-OPS-INFRA-01.md` |
+| FT-OPS-TEST-01 | [Done] | Keilly | Claim | deterministic test harness and coverage plumbing for lifecycle, audit, and UI state checks | `docs/status/foundation/FT-OPS-TEST-01.md` |
 
 ### Upstream slice contract dependencies
 | Dependency | Current status | Owner | Handling decision | Contract reference |
 |---|---|---|---|---|
-| `ActionResult` and execution lifecycle state | [WIP] | Ana | Mock | `docs/SYSTEM_DESIGN_PLAN.md` entities, data flow, and failure-mode sections |
-| `RemediationPlan` verification contract | [WIP] | Ana | Mock | `docs/SYSTEM_DESIGN_PLAN.md` communication/contracts section |
+| `ActionResult` and execution lifecycle state | [Done] | Ana | Mock | `docs/SYSTEM_DESIGN_PLAN.md` entities, data flow, and failure-mode sections |
+| `RemediationPlan` verification contract | [Done] | Ana | Mock | `docs/SYSTEM_DESIGN_PLAN.md` communication/contracts section |
 
 ### Mandatory dependency prompt requirements for Step 3.4/3.5
 | Prompt purpose | Linked dependency | Required ordering/gate |
@@ -528,16 +528,84 @@
 - Browser-level end-to-end verification is still indirect; current coverage is runtime compile plus contract/layout tests rather than a full browser interaction test.
 - byLLM summary generation is fail-closed to deterministic fallback text when provider access is unavailable locally.
 
-### 3.6 Review verdict
-- Result: Complete (`Approved`)
-- Notes:
-  - slice behavior is now architecture-conformant and locally reviewable
-  - proceed to Step `3.8` unless retries become necessary
+### Review Header
+- Slice ID: `SLICE-OPS-03`
+- Strategy ID: `S2`
+- Pattern ID: `P1`
+- Reviewer model/tool identifier: `Static Review Harness (shell test runner + contract audit)` (distinct from Step 3.5 implementation execution path)
+
+### FR/NFR Coverage Matrix
+- `FR-11`: Pass
+  - Evidence: `verify_walker` re-polls post-action metrics and emits typed verification state.
+- `FR-12`: Pass
+  - Evidence: `rollback_walker` applies bounded inverse recovery behavior on verification failure.
+- `FR-13`: Pass
+  - Evidence: `audit_walker` emits typed plus plain-language timeline entries across success and failure paths.
+- `FR-14`: Pass
+  - Evidence: the Jac UI renders verification state and audit-backed visibility from polled incident state.
+- `FR-15`: Pass
+  - Evidence: MTTR fields and manual-baseline comparison are exposed in incident state and UI copy.
+- `NFR-P-03`: Pass
+  - Evidence: lifecycle closeout remains in-process within the local Jac runtime path.
+- `NFR-P-04`: Pass
+  - Evidence: byLLM usage remains limited to typed summarization with deterministic fallback.
+- `NFR-U-01`: Pass
+  - Evidence: verification state, audit count, and recovery timing are visible without log inspection.
+- `NFR-U-02`: Pass
+  - Evidence: audit summary path is byLLM-first with readable fallback text.
+- `NFR-R-02`: Pass
+  - Evidence: audit timeline is preserved on both verification-pass and rollback-triggered paths.
+
+### Verification evidence
+- Build/test commands executed (required order):
+  - `make build` -> Pass
+  - `.venv/bin/jac run main.jac` -> Pass
+  - `./scripts/test_unit.sh` -> Pass
+  - `./scripts/test_integration.sh` -> Pass
+  - `./scripts/test_coverage.sh` -> Pass (`31.58%` >= `25.00%`)
+- Result summary:
+  - Pass
+
+### Edge-case coverage report
+- empty/null handling: Pass for absent lifecycle state before execute path and deterministic fallback text behavior.
+- boundary conditions: Pass for verification threshold comparison and MTTR projection values.
+- error paths: Pass for verification failure -> rollback path and byLLM summary fallback path.
+- concurrent access/infrastructure failure checks: limited local-only coverage; no additional async service boundary exists in this slice.
+
+### Failure-mode verification
+- verification failure: Pass
+  - Evidence: rollback path is triggered and reflected in projected incident state.
+- rollback-required path: Pass
+  - Evidence: bounded rollback result and state updates are recorded.
+- audit summary provider unavailability: Pass
+  - Evidence: deterministic fallback text remains available when byLLM is unavailable locally.
+
+### Architecture conformance verification
+- Selected Strategy ID still matches implemented runtime/platform/component boundaries: Pass
+- Selected Pattern ID still matches implementation shape and primary locus: Pass
+- Expected vs Actual Runtime parity: Pass
+- Required external framework/runtime/API contracts are implemented consistently with cited source files: Pass
+- Required runtime/framework artifacts exist in the codebase: Pass
+
+### Security and boundary regression check
+- RBAC/auth/session behavior: No regression in slice scope
+- safe field exposure: Pass
+- component boundary violations: `None`
+
+### Slice review verdict
+- `Approved`
+- Step `3.6` completion condition satisfied
 
 ## 3.7 Retry/Escalation Log
 - Not started.
 
 ## 3.8 Slice Closure Output
+### Closure Header
+- Slice ID: `SLICE-OPS-03`
+- Commit reference(s):
+  - branch closure commit: `b22aaf8`
+  - merged main reference: `05a82b3`
+
 ### Final integration and closure gates
 - Gate 1 (Mock/Stub reconciliation): Pass
   - lifecycle closeout consumes the merged `SLICE-OPS-02` execute-state baseline rather than a competing mock implementation

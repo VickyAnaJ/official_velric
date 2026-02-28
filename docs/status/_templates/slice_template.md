@@ -7,6 +7,10 @@
 - Included FR IDs:
 - Relevant NFR IDs:
 - Status:
+- Start Gate:
+- Expected Runtime:
+- Actual Runtime:
+- Runtime Match:
 
 ## 3.2 Dependency Output
 

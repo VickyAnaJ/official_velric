@@ -48,13 +48,13 @@
 ### Shared dependency list
 | Task ID | Current status | Owner | Handling decision | Interface contract reference | Foundation Detail File |
 |---|---|---|---|---|---|
-| FT-OPS-INFRA-01 | [WIP] | Shivaganesh | Mock | shared runtime/bootstrap contract and common endpoint skeleton | `docs/status/foundation/FT-OPS-INFRA-01.md` |
+| FT-OPS-INFRA-01 | [Done] | Shivaganesh | Mock | shared runtime/bootstrap contract and common endpoint skeleton | `docs/status/foundation/FT-OPS-INFRA-01.md` |
 
 ### Upstream slice contract dependencies
 | Dependency | Current status | Owner | Handling decision | Contract reference |
 |---|---|---|---|---|
-| Typed `IncidentHypothesis` on Incident node | [WIP] | Shivaganesh | Mock | `docs/SYSTEM_DESIGN_PLAN.md` walker/contracts sections for triage output |
-| Typed graph entity schema (`Incident`, `Alert`, `Deployment`, `Route`, `Config`, `Policy`) | [WIP] | Shivaganesh | Mock | `docs/SYSTEM_DESIGN_PLAN.md` entity and data-flow sections |
+| Typed `IncidentHypothesis` on Incident node | [Done] | Shivaganesh | Mock | `docs/SYSTEM_DESIGN_PLAN.md` walker/contracts sections for triage output |
+| Typed graph entity schema (`Incident`, `Alert`, `Deployment`, `Route`, `Config`, `Policy`) | [Done] | Shivaganesh | Mock | `docs/SYSTEM_DESIGN_PLAN.md` entity and data-flow sections |
 
 ### Mandatory dependency prompt requirements for Step 3.4/3.5
 | Prompt purpose | Linked dependency | Required ordering/gate |
@@ -741,7 +741,10 @@
 ### Closure Block
 - Closure Header:
   - Slice ID: `SLICE-OPS-02`
-  - Commit reference(s): Pending final Step `3.7/3.8` commit for this hardening/closure cycle
+  - Commit reference(s):
+    - branch hardening commit: `bd0a303`
+    - branch reconciliation commit: `5693f9d`
+    - merged main reference: `5cd68d6`
 
 - Gate results:
   - Gate 1 (Mock/Stub reconciliation): Pass
@@ -749,7 +752,7 @@
   - Gate 2 (Cleanup/hygiene): Pass
     - Notes: no temporary debug instrumentation or out-of-scope code retained; only deterministic input-hardening guards and matching tests added.
   - Gate 3 (Status reconciliation): Pass
-    - Evidence: slice/status ledgers updated consistently for Steps `3.6` and `3.7`; `SLICE-OPS-02` remains `[WIP]` while closure is not ready.
+    - Evidence: slice/status ledgers updated consistently for Steps `3.6`, `3.7`, and `3.8`; `SLICE-OPS-02` is closed with no conflicting gate or foundation state.
   - Gate 4 (Architecture conformance): Pass
     - Evidence: implementation remains aligned to selected `S2` + `P1` staged plan->policy->execute flow in Jac.
   - Gate 5 (Commit readiness): Pass
