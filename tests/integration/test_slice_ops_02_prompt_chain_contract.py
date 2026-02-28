@@ -27,6 +27,11 @@ class TestSliceOps02PromptChainContract(unittest.TestCase):
         self.assertIn("ACTION_NOT_ALLOWLISTED", self.source)
         self.assertIn("execute_status\": \"blocked\"", self.source)
 
+    def test_invalid_input_contract_is_present(self) -> None:
+        self.assertIn("execute_status\": \"invalid_input\"", self.source)
+        self.assertIn("current_stage\": \"input_validation\"", self.source)
+        self.assertIn("INVALID_CONFIDENCE_RANGE", self.source)
+
     def test_execute_status_contracts_cover_success_and_failure(self) -> None:
         self.assertIn("execute_status: str = \"executed\"", self.source)
         self.assertIn("execute_status = \"partial_execution\"", self.source)

@@ -37,6 +37,13 @@ class TestSliceOps02Contracts(unittest.TestCase):
         self.assertIn("deployment:canary", self.source)
         self.assertIn("route:prod_split", self.source)
 
+    def test_input_validation_contract_contains_incident_id_guard(self) -> None:
+        self.assertIn("current_stage\": \"input_validation\"", self.source)
+        self.assertIn("execute_status\": \"invalid_input\"", self.source)
+        self.assertIn("INCIDENT_ID_REQUIRED", self.source)
+        self.assertIn("INVALID_APPROVAL_TOKEN", self.source)
+        self.assertIn("INVALID_CONFIDENCE_RANGE", self.source)
+
 
 if __name__ == "__main__":
     unittest.main()

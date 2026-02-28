@@ -280,6 +280,31 @@ def:pub execute_incident(
     confidence: float = 0.92,
     require_approval: bool = False,
 ) -> dict {
+    if incident_id == "" {
+        return {
+            "incident_id": incident_id,
+            "current_stage": "input_validation",
+            "execute_status": "invalid_input",
+            "error": "INCIDENT_ID_REQUIRED",
+        };
+    }
+    if require_approval and approval_token != "" and approval_token[0:4] != "apr_" {
+        return {
+            "incident_id": incident_id,
+            "current_stage": "input_validation",
+            "execute_status": "invalid_input",
+            "error": "INVALID_APPROVAL_TOKEN",
+        };
+    }
+    if confidence < 0.0 or confidence > 1.0 {
+        return {
+            "incident_id": incident_id,
+            "current_stage": "input_validation",
+            "execute_status": "invalid_input",
+            "error": "INVALID_CONFIDENCE_RANGE",
+        };
+    }
+
     has hypothesis = build_mock_hypothesis(incident_id);
     has plan = build_plan_from_hypothesis(hypothesis, incident_id);
     has policy = evaluate_policy(plan, confidence, require_approval, approval_token);

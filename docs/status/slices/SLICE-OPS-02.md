@@ -689,7 +689,76 @@
   - Step `3.6` completion condition satisfied.
 
 ## 3.7 Retry/Escalation Log
-- Not started.
+### Retry Attempt 1
+- Attempt number: `1`
+- Hypothesis: explicit empty `incident_id` validation will prevent ambiguous execution state and improve edge-case contract clarity.
+- Single factor changed: add `incident_id == ""` guard in `execute_incident` returning deterministic `invalid_input` response with `INCIDENT_ID_REQUIRED`.
+- Commands/tests run:
+  - `make build`
+  - `./scripts/test_unit.sh`
+  - `./scripts/test_integration.sh`
+- Result: Pass
+  - Build: Pass
+  - Unit tests: Pass (`12` tests)
+  - Integration tests: Pass (`6` tests)
+- Decision: Continue (apply next hardening variable).
+
+### Retry Attempt 2
+- Attempt number: `2`
+- Hypothesis: validating approval token shape when provided (`apr_` prefix) will reduce unsafe/manual approval misuse.
+- Single factor changed: add approval-token format guard in `execute_incident` returning deterministic `invalid_input` response with `INVALID_APPROVAL_TOKEN`.
+- Commands/tests run:
+  - `make build`
+  - `./scripts/test_unit.sh`
+  - `./scripts/test_integration.sh`
+- Result: Pass
+  - Build: Pass
+  - Unit tests: Pass (`12` tests)
+  - Integration tests: Pass (`6` tests)
+- Decision: Continue (apply final hardening variable).
+
+### Retry Attempt 3
+- Attempt number: `3`
+- Hypothesis: enforcing confidence range bounds (`0.0..1.0`) at input validation will catch malformed caller input before policy stage.
+- Single factor changed: add confidence-range guard in `execute_incident` returning deterministic `invalid_input` response with `INVALID_CONFIDENCE_RANGE`; add integration contract assertion for invalid-input path.
+- Commands/tests run:
+  - `make build`
+  - `./scripts/test_unit.sh`
+  - `./scripts/test_integration.sh`
+  - `./scripts/test_coverage.sh`
+- Result: Pass
+  - Build: Pass
+  - Unit tests: Pass (`12` tests)
+  - Integration tests: Pass (`7` tests)
+  - Coverage: Pass (`30.97%` vs `25.00%` threshold, `19` tests)
+- Decision: Stop (hardening complete, no escalation required).
+
+### Escalation Outcome
+- Escalation triggered: `No`
+- Reason: All three structured retries passed with deterministic behavior and no unresolved blocker.
 
 ## 3.8 Slice Closure Output
-- Not started.
+### Closure Block
+- Closure Header:
+  - Slice ID: `SLICE-OPS-02`
+  - Commit reference(s): Pending final Step `3.7/3.8` commit for this hardening/closure cycle
+
+- Gate results:
+  - Gate 1 (Mock/Stub reconciliation): Fail
+    - Evidence: this slice still depends on unresolved `Mock`/`[WIP]` upstream contracts from Step `3.2` (`FT-OPS-INFRA-01` and triage contract ownership outside this slice), so reconciliation is not complete.
+  - Gate 2 (Cleanup/hygiene): Pass
+    - Notes: no temporary debug instrumentation or out-of-scope code retained; only deterministic input-hardening guards and matching tests added.
+  - Gate 3 (Status reconciliation): Pass
+    - Evidence: slice/status ledgers updated consistently for Steps `3.6` and `3.7`; `SLICE-OPS-02` remains `[WIP]` while closure is not ready.
+  - Gate 4 (Architecture conformance): Pass
+    - Evidence: implementation remains aligned to selected `S2` + `P1` staged plan->policy->execute flow in Jac.
+  - Gate 5 (Commit readiness): Pass
+    - Evidence: changes are slice-scoped (`main.jac`, slice tests, slice status docs); no out-of-scope FR implementation introduced.
+  - Gate 6 (Environment verification): Pass (local target environment)
+    - Evidence: build/unit/integration/coverage commands executed successfully in the local Jac runtime baseline used by this project.
+  - Gate 7 (Testing closure): Pass
+    - Evidence: no failing in-slice tests; coverage remains above threshold.
+
+- Closure verdict:
+  - `Not Ready`
+  - Required next action: complete mock/stub reconciliation once owning dependencies are no longer `[WIP]`, then rerun Step `3.8`.
