@@ -19,7 +19,7 @@ class TestPhase1SliceLayout(unittest.TestCase):
         self.assertIn('"current_stage": incident.current_stage', source)
         self.assertIn('"hypothesis": hypothesis_payload(hypothesis_from_incident(incident))', source)
         self.assertIn('"verification": verification_payload(None)', source)
-        self.assertIn('"audit": []', source)
+        self.assertIn('"audit": audit_payload(persisted_audit_entries(incident))', source)
         self.assertIn('"requires_manual_review": incident.requires_manual_review', source)
 
     def test_ui_copy_mentions_incident_lifecycle_and_audit(self) -> None:

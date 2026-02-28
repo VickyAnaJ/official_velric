@@ -13,7 +13,10 @@ class TestSliceOps02PromptChainContract(unittest.TestCase):
         self.source = MAIN_JAC.read_text()
 
     def test_plan_policy_execute_sequence_is_present(self) -> None:
-        self.assertIn("build_plan_from_hypothesis", self.source)
+        self.assertIn("walker plan_walker {", self.source)
+        self.assertIn("generate_plan(hypothesis, policy_contract_from_incident(here))", self.source)
+        self.assertIn("fallback_plan_from_hypothesis", self.source)
+        self.assertIn("walker execute_walker {", self.source)
         self.assertIn("evaluate_policy", self.source)
         self.assertIn("run_allowlisted_actions", self.source)
         self.assertIn("project_graph_updates", self.source)
@@ -25,7 +28,7 @@ class TestSliceOps02PromptChainContract(unittest.TestCase):
     def test_policy_block_contract_is_present(self) -> None:
         self.assertIn("LOW_CONFIDENCE", self.source)
         self.assertIn("ACTION_NOT_ALLOWLISTED", self.source)
-        self.assertIn("execute_status\": \"blocked\"", self.source)
+        self.assertIn('execution_state["execute_status"] = "blocked" if self.policy.status == "POLICY_BLOCKED" else "approval_required"', self.source)
 
     def test_invalid_input_contract_is_present(self) -> None:
         self.assertIn("execute_status\": \"invalid_input\"", self.source)
@@ -33,8 +36,8 @@ class TestSliceOps02PromptChainContract(unittest.TestCase):
         self.assertIn("INVALID_CONFIDENCE_RANGE", self.source)
 
     def test_execute_status_contracts_cover_success_and_failure(self) -> None:
-        self.assertIn("execute_status = \"executed\"", self.source)
-        self.assertIn("execute_status = \"partial_execution\"", self.source)
+        self.assertIn('execution_state["execute_status"] = "executed"', self.source)
+        self.assertIn('execution_state["execute_status"] = "partial_execution"', self.source)
         self.assertIn("mock_execution_failure", self.source)
 
 

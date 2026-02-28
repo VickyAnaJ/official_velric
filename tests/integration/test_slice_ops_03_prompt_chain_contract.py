@@ -33,9 +33,11 @@ class TestSliceOps03PromptChainContract(unittest.TestCase):
         self.assertIn("setInterval(lambda -> None { refresh_incident(); }, 1000);", self.source)
 
     def test_audit_contract_covers_success_and_failure_paths(self) -> None:
-        self.assertIn('step="verify"', self.source)
-        self.assertIn('step="rollback"', self.source)
-        self.assertIn('step="audit"', self.source)
+        self.assertIn('append_audit_entry(incident, "verify"', self.source)
+        self.assertIn('append_audit_entry(incident, "rollback"', self.source)
+        self.assertIn('"audit",', self.source)
+        self.assertIn("node AuditEntry {", self.source)
+        self.assertIn("persisted_audit_entries", self.source)
         self.assertIn("known_good_path_restored", self.source)
 
 

@@ -45,7 +45,7 @@ obj RollbackResult {
     has message: str;
 }
 
-obj AuditEntry {
+obj AuditEntryView {
     has step: str;
     has typed_data: dict;
     has plain_summary: str;
@@ -108,6 +108,43 @@ node Policy {
     has action_allowlist: list[str];
     has confidence_threshold: float;
     has approval_required: bool;
+}
+
+node PlanRecord {
+    has plan_id: str;
+    has actions: list[dict];
+    has verification_metric: str;
+    has expected_direction: str;
+    has rollback_on_fail: bool;
+}
+
+node ActionRecord {
+    has action_type: str;
+    has target: str;
+    has status: str;
+    has message: str;
+}
+
+node VerificationRecord {
+    has passed: bool;
+    has observed_value: float;
+    has expected_direction: str;
+    has metric: str;
+}
+
+node RollbackRecord {
+    has triggered: bool;
+    has status: str;
+    has restored_targets: list[str];
+    has action_types: list[str];
+    has message: str;
+}
+
+node AuditEntry {
+    has step: str;
+    has timestamp: str;
+    has typed_data: dict;
+    has plain_summary: str;
 }
 
 def classify_incident(signals: list[str], graph_context: str) -> IncidentHypothesis
@@ -363,7 +400,7 @@ def rollback_payload(rollback: RollbackResult) -> dict {
     };
 }
 
-def audit_payload(entries: list[AuditEntry]) -> list[dict] {
+def audit_payload(entries: list[AuditEntryView]) -> list[dict] {
     payload = [];
     for entry in entries {
         payload.append(
@@ -487,7 +524,139 @@ def build_mttr_metrics(verification: VerificationResult, rollback: RollbackResul
     };
 }
 
-def build_audit_entries(incident: Incident, execution_state: dict) -> list[AuditEntry] {
+def policy_contract_from_incident(incident: Incident) -> dict {
+    policies = [node for node in [incident-->](?:Policy)];
+    if not policies {
+        return {
+            "action_allowlist": POLICY_ALLOWLIST,
+            "confidence_threshold": 0.80,
+            "approval_required": False,
+        };
+    }
+    policy = policies[0];
+    return {
+        "action_allowlist": policy.action_allowlist,
+        "confidence_threshold": policy.confidence_threshold,
+        "approval_required": policy.approval_required,
+    };
+}
+
+def persist_plan_record(incident: Incident, plan: RemediationPlan) -> None {
+    incident ++> PlanRecord(
+        plan_id=plan.plan_id,
+        actions=plan.actions,
+        verification_metric=plan.verification_metric,
+        expected_direction=plan.expected_direction,
+        rollback_on_fail=plan.rollback_on_fail,
+    );
+}
+
+def persist_action_results(incident: Incident, action_results: list[ActionResult]) -> None {
+    for result in action_results {
+        incident ++> ActionRecord(
+            action_type=result.action_type,
+            target=result.target,
+            status=result.status,
+            message=result.message,
+        );
+    }
+}
+
+def persist_verification_record(incident: Incident, verification: VerificationResult) -> None {
+    incident ++> VerificationRecord(
+        passed=verification.passed,
+        observed_value=verification.observed_value,
+        expected_direction=verification.expected_direction,
+        metric=verification.metric,
+    );
+}
+
+def persist_rollback_record(incident: Incident, rollback: RollbackResult) -> None {
+    incident ++> RollbackRecord(
+        triggered=rollback.triggered,
+        status=rollback.status,
+        restored_targets=rollback.restored_targets,
+        action_types=rollback.action_types,
+        message=rollback.message,
+    );
+}
+
+def append_audit_entry(incident: Incident, step: str, typed_data: dict, plain_summary: str) -> AuditEntryView {
+    entry = (incident ++> AuditEntry(
+        step=step,
+        timestamp="2026-02-28T00:00:00Z",
+        typed_data=typed_data,
+        plain_summary=plain_summary,
+    ))[0];
+    return AuditEntryView(
+        step=entry.step,
+        typed_data=entry.typed_data,
+        plain_summary=entry.plain_summary,
+    );
+}
+
+def persisted_audit_entries(incident: Incident) -> list[AuditEntryView] {
+    payload = [];
+    for entry in [node for node in [incident-->](?:AuditEntry)] {
+        payload.append(
+            AuditEntryView(
+                step=entry.step,
+                typed_data=entry.typed_data,
+                plain_summary=entry.plain_summary,
+            )
+        );
+    }
+    return payload;
+}
+
+def apply_graph_updates(incident: Incident, state_updates: dict) -> None {
+    deployments = [node for node in [incident-->](?:Deployment)];
+    routes = [];
+    for deployment in deployments {
+        routes = [node for node in [deployment-->](?:Route)];
+        if deployments and "deployment" in state_updates {
+            deployment.status = state_updates["deployment"]["status"];
+        }
+    }
+    if routes and "route" in state_updates {
+        routes[0].baseline_pct = state_updates["route"]["baseline_pct"];
+        routes[0].canary_pct = state_updates["route"]["canary_pct"];
+    }
+}
+
+def fallback_plan_from_hypothesis(hypothesis: IncidentHypothesis, incident_id: str) -> RemediationPlan {
+    if hypothesis.incident_type == IncidentType.UNKNOWN {
+        return RemediationPlan(
+            plan_id="plan_" + incident_id,
+            actions=[],
+            verification_metric="vllm:e2e_request_latency_seconds",
+            expected_direction="down",
+            rollback_on_fail=True,
+        );
+    }
+    return RemediationPlan(
+        plan_id="plan_" + incident_id,
+        actions=[
+            {
+                "step": 1,
+                "type": "shift_traffic",
+                "target": "route:prod_split",
+                "params": {"canary_percentage": 0},
+            },
+            {
+                "step": 2,
+                "type": "set_deployment_status",
+                "target": "deployment:canary",
+                "params": {"status": "isolated"},
+            },
+        ],
+        verification_metric="vllm:e2e_request_latency_seconds",
+        expected_direction="down",
+        rollback_on_fail=True,
+    );
+}
+
+def build_audit_entries(incident: Incident, execution_state: dict) -> list[AuditEntryView] {
     entries = [];
     hypothesis = execution_state.get("hypothesis", hypothesis_from_incident(incident));
     plan = execution_state.get("plan", None);
@@ -500,35 +669,17 @@ def build_audit_entries(incident: Incident, execution_state: dict) -> list[Audit
     try {
         triage_summary = summarize_audit_step("triage", hypothesis_payload(hypothesis));
     } except Exception as e {}
-    entries.append(
-        AuditEntry(
-            step="triage",
-            typed_data=hypothesis_payload(hypothesis),
-            plain_summary=triage_summary,
-        )
-    );
+    entries.append(append_audit_entry(incident, "triage", hypothesis_payload(hypothesis), triage_summary));
     plan_summary = "Plan prepared with " + str(len(plan.actions) if plan != None else 0) + " allowlisted actions.";
     try {
         plan_summary = summarize_audit_step("plan", plan_payload(plan));
     } except Exception as e {}
-    entries.append(
-        AuditEntry(
-            step="plan",
-            typed_data=plan_payload(plan),
-            plain_summary=plan_summary,
-        )
-    );
+    entries.append(append_audit_entry(incident, "plan", plan_payload(plan), plan_summary));
     policy_summary = "Policy decision returned " + policy_payload(policy)["status"] + ".";
     try {
         policy_summary = summarize_audit_step("policy_check", policy_payload(policy));
     } except Exception as e {}
-    entries.append(
-        AuditEntry(
-            step="policy_check",
-            typed_data=policy_payload(policy),
-            plain_summary=policy_summary,
-        )
-    );
+    entries.append(append_audit_entry(incident, "policy_check", policy_payload(policy), policy_summary));
     execute_summary = "Execution completed with status " + execution_state.get("execute_status", "not_started") + ".";
     try {
         execute_summary = summarize_audit_step(
@@ -540,38 +691,27 @@ def build_audit_entries(incident: Incident, execution_state: dict) -> list[Audit
         );
     } except Exception as e {}
     entries.append(
-        AuditEntry(
-            step="execute",
-            typed_data={
+        append_audit_entry(
+            incident,
+            "execute",
+            {
                 "execute_status": execution_state.get("execute_status", "not_started"),
                 "action_results": action_results_payload(action_results),
             },
-            plain_summary=execute_summary,
+            execute_summary,
         )
     );
     verify_summary = "Verification " + ("passed" if verification != None and verification.passed else "failed") + " against post-action metrics.";
     try {
         verify_summary = summarize_audit_step("verify", verification_payload(verification));
     } except Exception as e {}
-    entries.append(
-        AuditEntry(
-            step="verify",
-            typed_data=verification_payload(verification),
-            plain_summary=verify_summary,
-        )
-    );
+    entries.append(append_audit_entry(incident, "verify", verification_payload(verification), verify_summary));
     if rollback != None and rollback.triggered {
         rollback_summary = "Rollback restored the known-good route after failed verification.";
         try {
             rollback_summary = summarize_audit_step("rollback", rollback_payload(rollback));
         } except Exception as e {}
-        entries.append(
-            AuditEntry(
-                step="rollback",
-                typed_data=rollback_payload(rollback),
-                plain_summary=rollback_summary,
-            )
-        );
+        entries.append(append_audit_entry(incident, "rollback", rollback_payload(rollback), rollback_summary));
     }
     audit_summary = "Audit timeline preserved the full incident workflow for operator review.";
     try {
@@ -584,13 +724,14 @@ def build_audit_entries(incident: Incident, execution_state: dict) -> list[Audit
         );
     } except Exception as e {}
     entries.append(
-        AuditEntry(
-            step="audit",
-            typed_data={
+        append_audit_entry(
+            incident,
+            "audit",
+            {
                 "entry_count": len(entries) + 1,
                 "resolved_status": incident.status,
             },
-            plain_summary=audit_summary,
+            audit_summary,
         )
     );
     return entries;
@@ -713,8 +854,87 @@ walker triage_walker {
     }
 }
 
-walker plan_walker {}
-walker execute_walker {}
+walker plan_walker {
+    has incident_id: str;
+    has plan: RemediationPlan = None;
+
+    can start with Root entry {
+        visit [-->(?:Incident)];
+    }
+
+    can build_plan with Incident entry {
+        if here.incident_id == self.incident_id {
+            hypothesis = hypothesis_from_incident(here);
+            try {
+                self.plan = generate_plan(hypothesis, policy_contract_from_incident(here));
+            } except Exception as e {
+                self.plan = fallback_plan_from_hypothesis(hypothesis, self.incident_id);
+            }
+            persist_plan_record(here, self.plan);
+            here.current_stage = "plan_complete";
+            if self.incident_id in INCIDENT_EXECUTION_STATE {
+                INCIDENT_EXECUTION_STATE[self.incident_id]["plan"] = self.plan;
+                INCIDENT_EXECUTION_STATE[self.incident_id]["current_stage"] = "plan_walker";
+            }
+            report plan_payload(self.plan);
+        }
+    }
+}
+
+walker execute_walker {
+    has incident_id: str;
+    has approval_token: str = "";
+    has force_fail: bool = False;
+    has confidence: float = 0.92;
+    has require_approval: bool = False;
+    has policy: PolicyDecision = None;
+    has action_results: list[ActionResult] = [];
+
+    can start with Root entry {
+        visit [-->(?:Incident)];
+    }
+
+    can execute_plan with Incident entry {
+        if here.incident_id == self.incident_id and self.incident_id in INCIDENT_EXECUTION_STATE {
+            execution_state = INCIDENT_EXECUTION_STATE[self.incident_id];
+            plan = execution_state.get("plan", None);
+            if plan == None {
+                return;
+            }
+            self.policy = evaluate_policy(plan, self.confidence, self.require_approval, self.approval_token);
+            execution_state["policy_decision"] = self.policy;
+            if self.policy.status != "PASS" {
+                execution_state["current_stage"] = "policy_check";
+                execution_state["execute_status"] = "blocked" if self.policy.status == "POLICY_BLOCKED" else "approval_required";
+                here.current_stage = "policy_check";
+                report {
+                    "policy_decision": policy_payload(self.policy),
+                    "execute_status": execution_state["execute_status"],
+                };
+                return;
+            }
+            self.action_results = run_allowlisted_actions(plan, force_fail=self.force_fail);
+            persist_action_results(here, self.action_results);
+            execution_state["action_results"] = self.action_results;
+            execution_state["state_updates"] = project_graph_updates(self.action_results);
+            apply_graph_updates(here, execution_state["state_updates"]);
+            execution_state["execute_status"] = "executed";
+            for result in self.action_results {
+                if result.status != "succeeded" {
+                    execution_state["execute_status"] = "partial_execution";
+                }
+            }
+            execution_state["current_stage"] = "execute_walker";
+            here.current_stage = "execute_walker";
+            report {
+                "policy_decision": policy_payload(self.policy),
+                "action_results": action_results_payload(self.action_results),
+                "state_updates": execution_state["state_updates"],
+                "execute_status": execution_state["execute_status"],
+            };
+        }
+    }
+}
 
 walker verify_walker {
     has incident_id: str;
@@ -735,6 +955,7 @@ walker verify_walker {
                     execution_state.get("execute_status", "not_started"),
                     force_failure=self.force_failure,
                 );
+                persist_verification_record(here, self.verification);
                 execution_state["verification"] = self.verification;
                 execution_state["current_stage"] = "verify_walker";
                 here.current_stage = "verify_walker";
@@ -767,6 +988,7 @@ walker rollback_walker {
                 execution_state.get("action_results", []),
                 execution_state.get("verification", None),
             );
+            persist_rollback_record(here, self.rollback);
             execution_state["rollback"] = self.rollback;
             execution_state["current_stage"] = "rollback_walker";
             here.current_stage = "rollback_walker";
@@ -826,38 +1048,6 @@ def build_mock_hypothesis(incident_id: str) -> IncidentHypothesis {
             "route:prod_split",
             "policy:default",
         ],
-    );
-}
-
-def build_plan_from_hypothesis(hypothesis: IncidentHypothesis, incident_id: str) -> RemediationPlan {
-    if hypothesis.incident_type == IncidentType.UNKNOWN {
-        return RemediationPlan(
-            plan_id="plan_" + incident_id,
-            actions=[],
-            verification_metric="vllm:e2e_request_latency_seconds",
-            expected_direction="down",
-            rollback_on_fail=True,
-        );
-    }
-    return RemediationPlan(
-        plan_id="plan_" + incident_id,
-        actions=[
-            {
-                "step": 1,
-                "type": "shift_traffic",
-                "target": "route:prod_split",
-                "params": {"canary_percentage": 0},
-            },
-            {
-                "step": 2,
-                "type": "set_deployment_status",
-                "target": "deployment:canary",
-                "params": {"status": "isolated"},
-            },
-        ],
-        verification_metric="vllm:e2e_request_latency_seconds",
-        expected_direction="down",
-        rollback_on_fail=True,
     );
 }
 
@@ -1124,42 +1314,29 @@ def:pub execute_incident(
 
     incident = incidents[0];
     hypothesis = hypothesis_from_incident(incident);
-    plan = build_plan_from_hypothesis(hypothesis, incident_id);
-    policy = evaluate_policy(plan, confidence, require_approval, approval_token);
-
-    if policy.status != "PASS" {
-        INCIDENT_EXECUTION_STATE[incident_id] = {
-            "incident_id": incident_id,
-            "current_stage": "policy_check",
-            "execute_status": "blocked" if policy.status == "POLICY_BLOCKED" else "approval_required",
-            "hypothesis": hypothesis,
-            "plan": plan,
-            "policy_decision": policy,
-            "action_results": [],
-            "state_updates": {},
-        };
-        return INCIDENT_EXECUTION_STATE[incident_id];
-    }
-
-    action_results = run_allowlisted_actions(plan, force_fail=force_fail);
-    state_updates = project_graph_updates(action_results);
-    execute_status = "executed";
-    for result in action_results {
-        if result.status != "succeeded" {
-            execute_status = "partial_execution";
-        }
-    }
-
     INCIDENT_EXECUTION_STATE[incident_id] = {
         "incident_id": incident_id,
-        "current_stage": "execute_walker",
-        "execute_status": execute_status,
+        "current_stage": "triage_complete",
+        "execute_status": "not_started",
         "hypothesis": hypothesis,
-        "plan": plan,
-        "policy_decision": policy,
-        "action_results": action_results,
-        "state_updates": state_updates,
+        "plan": None,
+        "policy_decision": None,
+        "action_results": [],
+        "state_updates": {},
     };
+    root spawn plan_walker(
+        incident_id=incident_id,
+    );
+    root spawn execute_walker(
+        incident_id=incident_id,
+        approval_token=approval_token,
+        force_fail=force_fail,
+        confidence=confidence,
+        require_approval=require_approval,
+    );
+    if INCIDENT_EXECUTION_STATE[incident_id].get("execute_status", "not_started") in ["blocked", "approval_required"] {
+        return lifecycle_state_payload(incident, INCIDENT_EXECUTION_STATE[incident_id]);
+    }
     root spawn verify_walker(
         incident_id=incident_id,
         force_failure=force_verification_failure,
@@ -1211,7 +1388,7 @@ def:pub get_incident_state(incident_id: str) -> dict {
         "state_updates": {},
         "verification": verification_payload(None),
         "rollback": rollback_payload(None),
-        "audit": [],
+        "audit": audit_payload(persisted_audit_entries(incident)),
         "mttr": build_mttr_metrics(None, None),
         "requires_manual_review": incident.requires_manual_review,
     };
