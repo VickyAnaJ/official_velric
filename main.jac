@@ -1478,7 +1478,7 @@ cl def:pub app() -> JsxElement {
         ver = incident["verification"] or {};
         ver_passed = ver["passed"] or False;
         ver_status_raw = ver["status"] or "N/A";
-        ver_status = ver_status_raw.toUpperCase() if ver_status_raw else "N/A";
+        ver_status = ver_status_raw if ver_status_raw else "N/A";
         ver_color = "#38a169" if ver_passed else "#e53e3e";
 
         rb = incident["rollback"] or {};
@@ -1502,7 +1502,7 @@ cl def:pub app() -> JsxElement {
         for entry in audit_entries {
             e_step = entry["step"] or "";
             e_summary = entry["plain_summary"] or "";
-            audit_lines.push("[" + e_step.toUpperCase() + "] " + e_summary);
+            audit_lines.push("[" + e_step + "] " + e_summary);
         }
         audit_text = audit_lines.join("\n") if audit_lines.length > 0 else "No audit entries";
 
@@ -1607,8 +1607,8 @@ cl def:pub app() -> JsxElement {
                         <div style={label_style}>Incident</div>
                         <div style={{"fontSize": "18px", "fontWeight": "700", "color": "#fff", "marginBottom": "8px"}}>{inc_id}</div>
                         <div style={{"display": "flex", "gap": "8px", "marginBottom": "10px"}}>
-                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": sev_color, "color": "#fff"}}>{inc_severity.toUpperCase()}</span>
-                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": stat_color, "color": "#fff"}}>{inc_status.toUpperCase()}</span>
+                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": sev_color, "color": "#fff", "textTransform": "uppercase"}}>{inc_severity}</span>
+                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": stat_color, "color": "#fff", "textTransform": "uppercase"}}>{inc_status}</span>
                         </div>
                         <div style={detail_style}>Stage: <span style={{"color": "#e2e8f0", "fontWeight": "600"}}>{inc_stage}</span></div>
                         <div style={detail_style}>Signals: <span style={{"color": "#e2e8f0"}}>{inc_signals}</span></div>
@@ -1630,7 +1630,7 @@ cl def:pub app() -> JsxElement {
                         <pre style={pre_style}>{actions_text}</pre>
                         <div style={{"fontSize": "12px", "marginTop": "10px"}}>
                             <span style={{"color": "#a0aec0"}}>Verify: </span>
-                            <span style={{"color": ver_color, "fontWeight": "700"}}>{ver_status}</span>
+                            <span style={{"color": ver_color, "fontWeight": "700", "textTransform": "uppercase"}}>{ver_status}</span>
                         </div>
                         <div style={{"fontSize": "12px", "marginTop": "4px", "color": rb_color, "fontWeight": "600"}}>Rollback: {rb_status}</div>
                     </div>
