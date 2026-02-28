@@ -33,17 +33,18 @@ def generate_metrics_payload(scenario: str = "rollout_regression") -> str:
     metrics = scenario_metrics(scenario)
     lines = [
         "# HELP vllm:e2e_request_latency_seconds End-to-end request latency",
-        "# TYPE vllm:e2e_request_latency_seconds gauge",
-        f"{REQUIRED_METRIC_NAMES[0]} {metrics[REQUIRED_METRIC_NAMES[0]]}",
+        "# TYPE vllm:e2e_request_latency_seconds histogram",
+        f'{REQUIRED_METRIC_NAMES[0]}{{model_name="canary"}} {metrics[REQUIRED_METRIC_NAMES[0]]}',
         "# HELP vllm:kv_cache_usage_perc KV cache utilization",
         "# TYPE vllm:kv_cache_usage_perc gauge",
-        f"{REQUIRED_METRIC_NAMES[1]} {metrics[REQUIRED_METRIC_NAMES[1]]}",
+        f'{REQUIRED_METRIC_NAMES[1]}{{model_name="canary"}} {metrics[REQUIRED_METRIC_NAMES[1]]}',
         "# HELP vllm:num_requests_running Number running",
         "# TYPE vllm:num_requests_running gauge",
-        f"{REQUIRED_METRIC_NAMES[2]} {metrics[REQUIRED_METRIC_NAMES[2]]}",
+        f'{REQUIRED_METRIC_NAMES[2]}{{model_name="canary"}} {metrics[REQUIRED_METRIC_NAMES[2]]}',
+        f'{REQUIRED_METRIC_NAMES[2]}{{model_name="baseline"}} 8.0',
         "# HELP vllm:request_success_total Number of successful requests",
         "# TYPE vllm:request_success_total counter",
-        f"{REQUIRED_METRIC_NAMES[3]} {metrics[REQUIRED_METRIC_NAMES[3]]}",
+        f'{REQUIRED_METRIC_NAMES[3]}{{finished_reason="stop"}} {metrics[REQUIRED_METRIC_NAMES[3]]}',
         "",
     ]
     return "\n".join(lines)
