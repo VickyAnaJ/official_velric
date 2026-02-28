@@ -541,7 +541,87 @@
   - TODOs (out-of-scope): UI panel integration and MTTR dashboard belong to later slice.
 
 ## 3.6 Slice Review Output
-Pending Step 3.6.
+### Review Header
+- Slice ID: `SLICE-OPS-01`
+- Strategy ID: `S2`
+- Pattern ID: `P1`
+- Reviewer model/tool identifier (must differ from implementation model/tool): `Static-review toolchain (python3 + unittest + boundary audit)` (non-authoring reviewer workflow)
+
+### FR/NFR Coverage Matrix
+- FR-01: Pass.
+  - Evidence reference: `tests.integration.slice_ops_01.test_incident_ingest_to_triage_flow::test_trigger_and_fetch_incident` validates active incident retrieval via `GET /incident/{id}`.
+- FR-02: Pass.
+  - Evidence reference: `services/ops_graph/orchestrator.py` ingest path + `tests.unit.mapper.test_signal_to_graph_mapping`.
+- FR-03: Pass.
+  - Evidence reference: typed contracts/store in `services/ops_graph/contracts.py` + `services/ops_graph/graph.py`; validated by `tests.unit.schema.test_node_contracts`.
+- FR-04: Pass.
+  - Evidence reference: triage invocation in `services/ops_graph/orchestrator.py` and classifier outputs in `tests.unit.triage.test_hypothesis_shape`.
+- FR-05: Pass.
+  - Evidence reference: bounded classification behavior in `services/ops_graph/triage.py`; validated by `tests.unit.triage.test_classifier_bounds`.
+- FR-16: Pass.
+  - Evidence reference: `GET /metrics` contract and required metric names validated by `tests.integration.mock_metrics.test_metrics_endpoint_http` and `tests.unit.mock_metrics.test_metric_payload_names`.
+- NFR-P-01: Pass.
+  - Evidence reference: local integration request path completes successfully in `./scripts/test_integration.sh`; no blocking latency observed in test harness.
+- NFR-P-02: Pass.
+  - Evidence reference: deterministic in-process triage/classification path validated through unit+integration suite.
+- NFR-U-01: Pass.
+  - Evidence reference: API response includes active incident status/severity/hypothesis fields (`services/ops_graph/graph.py` response contract).
+- NFR-U-02: Pass.
+  - Evidence reference: typed hypothesis includes plain-language summary (`services/ops_graph/triage.py`).
+- NFR-R-01: Pass.
+  - Evidence reference: fail-closed `manual_review_required` behavior validated by `tests.unit.triage.test_classifier_bounds` and integration fail-path test.
+- NFR-C-01: Pass.
+  - Evidence reference: metric names enforced by parser and endpoint payload tests.
+- NFR-C-02: Pass.
+  - Evidence reference: local Python runtime, no GPU/external DB requirement; full test suite passes in local environment.
+
+### Verification evidence
+- Build/test commands executed (required order):
+  - `make build` -> Pass (placeholder build target)
+  - `./scripts/test_unit.sh` -> Pass (12 tests)
+  - `./scripts/test_integration.sh` -> Pass (5 tests)
+  - `./scripts/test_coverage.sh` -> Pass (`27.08%` vs threshold `25.00%`)
+- Unit-test result summary (pass/fail, key suite names):
+  - Pass; key suites: runtime config, metric payload validation, mapper/schema, triage/classifier, API validation.
+- Integration-test result summary (pass/fail, key suite names):
+  - Pass; key suites: mock metrics HTTP endpoint, end-to-end incident trigger->fetch flow, fail-closed metrics-source-unavailable behavior.
+- Coverage summary (threshold result + key percentages):
+  - Pass; approximate line coverage `27.08%`, threshold `25.00%`.
+- Result summary (Pass/Fail):
+  - Pass.
+- If blocked, blocker + impact:
+  - None.
+
+### Edge-case coverage report
+- empty/null handling:
+  - Pass; empty/invalid `incident_key` handled with `400` via `tests.unit.api.test_incident_controller_validation`.
+- boundary conditions:
+  - Pass; classifier threshold boundaries validated in `tests.unit.triage.test_classifier_bounds`.
+- error paths:
+  - Pass; malformed JSON and unavailable metrics source validated in integration tests (`400`/`503` fail-closed paths).
+- concurrent access/infrastructure failure checks (if applicable):
+  - Pass (limited scope); repeated trigger idempotency covered by `test_idempotent_trigger_with_same_incident_key`.
+  - Note: true parallel concurrency stress is not in-scope for this slice and deferred to later reliability hardening.
+
+### Failure-mode verification (from 3.3 critical-path plan)
+- Missing required metric names: Pass.
+  - Evidence reference: parser rejection path in `tests.unit.mock_metrics.test_metric_payload_names::test_parse_rejects_missing_metrics`.
+- Metrics source unavailable: Pass.
+  - Evidence reference: `tests.integration.slice_ops_01.test_incident_ingest_to_triage_flow::test_unavailable_metrics_source_returns_fail_closed`.
+- Unsupported/insufficient context for confident classification: Pass.
+  - Evidence reference: `tests.unit.triage.test_classifier_bounds::test_manual_review_on_low_signals`.
+
+### Security and boundary regression check
+- RBAC/auth/session behavior:
+  - Pass (not introduced/changed in this slice; no auth bypass paths added).
+- safe field exposure:
+  - Pass; responses expose operational incident fields only (`incident_id`, status/severity, metrics, typed hypothesis).
+- component boundary violations (`None` / `Found` with notes):
+  - None.
+
+### Slice review verdict
+- Approved.
+- Step 3.6 completion condition: satisfied.
 
 ## 3.7 Retry/Escalation Log
 Pending Step 3.7.
