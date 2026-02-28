@@ -6,8 +6,8 @@
 - Owner: Ana
 - Included FR IDs: FR-06, FR-07, FR-08, FR-09, FR-10
 - Relevant NFR IDs: NFR-S-01, NFR-S-02, NFR-S-03, NFR-R-03, NFR-P-02
-- Status: [WIP]
-- Start Gate: Active
+- Status: [Done]
+- Start Gate: Closed
 
 ## 3.1 Planning and Activation Output
 ### Source mapping from `docs/SYSTEM_DESIGN_PLAN.md`
@@ -28,7 +28,7 @@
   - NFRs: `NFR-S-01`, `NFR-S-02`, `NFR-S-03`, `NFR-R-03`, `NFR-P-02`
 - Planning verdict:
   - Valid planned slice.
-  - Activated in collaborative mode because typed graph and triage contracts from `SLICE-OPS-01` can be consumed as explicit mocks/contracts until the owning implementation lands.
+  - Activated in collaborative mode because typed graph and triage contracts from `SLICE-OPS-01` could be consumed as explicit mocks/contracts until the owning implementation landed.
 
 ## 3.2 Dependency Output
 ### Dependency header
@@ -744,8 +744,8 @@
   - Commit reference(s): Pending final Step `3.7/3.8` commit for this hardening/closure cycle
 
 - Gate results:
-  - Gate 1 (Mock/Stub reconciliation): Fail
-    - Evidence: this slice still depends on unresolved `Mock`/`[WIP]` upstream contracts from Step `3.2` (`FT-OPS-INFRA-01` and triage contract ownership outside this slice), so reconciliation is not complete.
+  - Gate 1 (Mock/Stub reconciliation): Pass
+    - Evidence: `SLICE-OPS-01` is now closed on `main`, and `execute_incident(...)` consumes the real upstream incident hypothesis/state contract instead of the earlier mock path.
   - Gate 2 (Cleanup/hygiene): Pass
     - Notes: no temporary debug instrumentation or out-of-scope code retained; only deterministic input-hardening guards and matching tests added.
   - Gate 3 (Status reconciliation): Pass
@@ -760,5 +760,5 @@
     - Evidence: no failing in-slice tests; coverage remains above threshold.
 
 - Closure verdict:
-  - `Not Ready`
-  - Required next action: complete mock/stub reconciliation once owning dependencies are no longer `[WIP]`, then rerun Step `3.8`.
+  - `Ready to Close`
+  - Notes: upstream Phase 1 triage/runtime contracts are now reconciled on top of merged `main`, and local closure gates pass.

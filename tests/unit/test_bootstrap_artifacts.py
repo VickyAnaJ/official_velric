@@ -20,6 +20,13 @@ class TestBootstrapArtifacts(unittest.TestCase):
     def test_main_jac_exists(self) -> None:
         self.assertTrue((ROOT / "main.jac").exists())
 
+    def test_main_jac_contains_phase_1_runtime_contract_metadata(self) -> None:
+        source = (ROOT / "main.jac").read_text()
+        self.assertIn('def runtime_contract_metadata() -> dict', source)
+        self.assertIn('"phase": "phase_1_baseline"', source)
+        self.assertIn('"active_slice": "SLICE-OPS-01"', source)
+        self.assertIn('"foundation_contracts"', source)
+
     def test_mock_metrics_payload_contains_required_names(self) -> None:
         payload = generate_metrics_payload()
         for metric_name in REQUIRED_METRIC_NAMES:

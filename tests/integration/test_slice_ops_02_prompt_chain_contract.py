@@ -33,7 +33,7 @@ class TestSliceOps02PromptChainContract(unittest.TestCase):
         self.assertIn("INVALID_CONFIDENCE_RANGE", self.source)
 
     def test_execute_status_contracts_cover_success_and_failure(self) -> None:
-        self.assertIn("execute_status: str = \"executed\"", self.source)
+        self.assertIn("execute_status = \"executed\"", self.source)
         self.assertIn("execute_status = \"partial_execution\"", self.source)
         self.assertIn("mock_execution_failure", self.source)
 

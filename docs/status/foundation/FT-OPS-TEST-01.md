@@ -4,7 +4,7 @@
 - FT_ID: FT-OPS-TEST-01
 - Owner: Keilly
 - Status: [WIP]
-- Linked Slices: SLICE-OPS-01, SLICE-OPS-03
+- Linked Slices: SLICE-OPS-03
 
 ## What this foundation task does (one sentence, plain language)
 Provides shared deterministic test harness and coverage plumbing for slice work.
@@ -21,9 +21,11 @@ Provides shared deterministic test harness and coverage plumbing for slice work.
 - Contract consumers:
   - `SLICE-OPS-03` -> real shared test-harness implementation owner
   - `SLICE-OPS-01` -> mock consumer until shared harness lands
+- `SLICE-OPS-01` was removed as a consumer after closure review confirmed its tests are slice-local and do not depend on this foundation task.
 
 ## Verification Evidence
 - Claim recorded in `docs/STATUS.md` Foundation Task Registry and Step `3.2` outputs.
+- `SLICE-OPS-01` review surfaced and corrected stale UI-copy assertions before final local review pass.
 
 ## Closure
 - Result: Not started.
