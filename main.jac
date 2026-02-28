@@ -1485,38 +1485,108 @@ cl def:pub app() -> JsxElement {
     }
 
     def get_policy_color() -> str {
-        pol = incident.get("policy_decision", {}).get("status", "") if incident else "";
+        if not incident { return "#718096"; }
+        pd = incident.get("policy_decision", None);
+        if not pd { return "#718096"; }
+        pol = pd.get("status", "");
         if pol == "PASS" { return "#38a169"; }
         if pol == "POLICY_BLOCKED" { return "#e53e3e"; }
         return "#dd6b20";
     }
 
     def get_verify_color() -> str {
-        if incident and incident.get("verification", {}).get("passed", False) { return "#38a169"; }
+        if not incident { return "#e53e3e"; }
+        v = incident.get("verification", None);
+        if v and v.get("passed", False) { return "#38a169"; }
         return "#e53e3e";
     }
 
+    def safe_hyp(key: str, fallback: str = "") -> str {
+        if not incident { return fallback; }
+        h = incident.get("hypothesis", None);
+        if not h { return fallback; }
+        return str(h.get(key, fallback));
+    }
+
+    def safe_plan_action_count() -> str {
+        if not incident { return "0"; }
+        p = incident.get("plan", None);
+        if not p { return "0"; }
+        acts = p.get("actions", []);
+        return str(len(acts));
+    }
+
+    def safe_policy_status() -> str {
+        if not incident { return "N/A"; }
+        pd = incident.get("policy_decision", None);
+        if not pd { return "N/A"; }
+        return pd.get("status", "N/A");
+    }
+
+    def safe_verify_status() -> str {
+        if not incident { return "N/A"; }
+        v = incident.get("verification", None);
+        if not v { return "N/A"; }
+        return v.get("status", "N/A").upper();
+    }
+
+    def safe_rollback_triggered() -> bool {
+        if not incident { return False; }
+        rb = incident.get("rollback", None);
+        if not rb { return False; }
+        return rb.get("triggered", False);
+    }
+
+    def safe_rollback_status() -> str {
+        if not incident { return "not_needed"; }
+        rb = incident.get("rollback", None);
+        if not rb { return "not_needed"; }
+        return rb.get("status", "not_needed");
+    }
+
+    def safe_mttr(key: str, fallback: int = 0) -> str {
+        if not incident { return str(fallback); }
+        m = incident.get("mttr", None);
+        if not m { return str(fallback); }
+        return str(m.get(key, fallback));
+    }
+
+    def safe_mttr_mode() -> str {
+        if not incident { return ""; }
+        m = incident.get("mttr", None);
+        if not m { return ""; }
+        return m.get("resolution_mode", "");
+    }
+
     def format_actions() -> str {
-        results = incident.get("action_results", []) if incident else [];
+        if not incident { return "No actions executed"; }
+        results = incident.get("action_results", []);
+        if not results { return "No actions executed"; }
         lines = [];
         for a in results {
             mark = "+" if a.get("status", "") == "succeeded" else "x";
             lines.append(mark + " " + a.get("action_type", "") + " -> " + a.get("target", ""));
         }
-        return "\n".join(lines) if lines else "No actions executed";
+        if not lines { return "No actions executed"; }
+        return "\n".join(lines);
     }
 
     def format_audit() -> str {
-        entries = incident.get("audit", []) if incident else [];
+        if not incident { return "No audit entries"; }
+        entries = incident.get("audit", []);
+        if not entries { return "No audit entries"; }
         lines = [];
         for entry in entries {
             lines.append("[" + entry.get("step", "").upper() + "] " + entry.get("plain_summary", ""));
         }
-        return "\n".join(lines) if lines else "No audit entries";
+        if not lines { return "No audit entries"; }
+        return "\n".join(lines);
     }
 
     def get_pct_saved() -> int {
-        mttr = incident.get("mttr", {}) if incident else {};
+        if not incident { return 0; }
+        mttr = incident.get("mttr", None);
+        if not mttr { return 0; }
         saved = mttr.get("seconds_saved_vs_manual", 0);
         baseline = mttr.get("manual_baseline_seconds", 1800);
         if baseline > 0 { return round((saved / baseline) * 100); }
@@ -1587,33 +1657,33 @@ cl def:pub app() -> JsxElement {
 
                     <div style={card_style}>
                         <div style={label_style}>Triage + Plan</div>
-                        <div style={{"fontSize": "14px", "fontWeight": "700", "color": "#63b3ed", "marginBottom": "6px"}}>{incident.get("hypothesis", {}).get("incident_type", "")}</div>
-                        <div style={{"fontSize": "12px", "color": "#a0aec0", "marginBottom": "10px", "lineHeight": "1.4"}}>{incident.get("hypothesis", {}).get("root_cause", "")}</div>
-                        <div style={detail_style}>Confidence: <span style={{"color": "#48bb78", "fontWeight": "700"}}>{str(incident.get("hypothesis", {}).get("confidence", 0))}</span></div>
-                        <div style={detail_style}>Planned actions: <span style={{"color": "#e2e8f0"}}>{str(len(incident.get("plan", {}).get("actions", [])))}</span></div>
+                        <div style={{"fontSize": "14px", "fontWeight": "700", "color": "#63b3ed", "marginBottom": "6px"}}>{safe_hyp("incident_type")}</div>
+                        <div style={{"fontSize": "12px", "color": "#a0aec0", "marginBottom": "10px", "lineHeight": "1.4"}}>{safe_hyp("root_cause")}</div>
+                        <div style={detail_style}>Confidence: <span style={{"color": "#48bb78", "fontWeight": "700"}}>{safe_hyp("confidence", "0")}</span></div>
+                        <div style={detail_style}>Planned actions: <span style={{"color": "#e2e8f0"}}>{safe_plan_action_count()}</span></div>
                     </div>
 
                     <div style={card_style}>
                         <div style={label_style}>Execution</div>
                         <div style={{"marginBottom": "10px"}}>
-                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": get_policy_color(), "color": "#fff"}}>Policy: {incident.get("policy_decision", {}).get("status", "N/A")}</span>
+                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": get_policy_color(), "color": "#fff"}}>Policy: {safe_policy_status()}</span>
                         </div>
                         <pre style={pre_style}>{format_actions()}</pre>
                         <div style={{"fontSize": "12px", "marginTop": "10px"}}>
                             <span style={{"color": "#a0aec0"}}>Verify: </span>
-                            <span style={{"color": get_verify_color(), "fontWeight": "700"}}>{incident.get("verification", {}).get("status", "N/A").upper()}</span>
+                            <span style={{"color": get_verify_color(), "fontWeight": "700"}}>{safe_verify_status()}</span>
                         </div>
-                        <div style={{"fontSize": "12px", "marginTop": "4px", "color": "#e53e3e" if incident.get("rollback", {}).get("triggered", False) else "#718096", "fontWeight": "600"}}>Rollback: {incident.get("rollback", {}).get("status", "not_needed")}</div>
+                        <div style={{"fontSize": "12px", "marginTop": "4px", "color": "#e53e3e" if safe_rollback_triggered() else "#718096", "fontWeight": "600"}}>Rollback: {safe_rollback_status()}</div>
                     </div>
 
                     <div style={card_style}>
                         <div style={label_style}>MTTR</div>
                         <div style={{"fontSize": "36px", "fontWeight": "800", "color": "#48bb78", "lineHeight": "1"}}>{str(get_pct_saved())}%</div>
                         <div style={{"fontSize": "11px", "color": "#718096", "marginBottom": "14px"}}>faster than manual</div>
-                        <div style={detail_style}>Recovery: <span style={{"color": "#e2e8f0", "fontWeight": "600"}}>{str(incident.get("mttr", {}).get("time_to_recovery_seconds", 0))}s</span></div>
-                        <div style={detail_style}>Manual baseline: <span style={{"color": "#718096"}}>{str(incident.get("mttr", {}).get("manual_baseline_seconds", 0))}s</span></div>
-                        <div style={detail_style}>Time saved: <span style={{"color": "#48bb78", "fontWeight": "600"}}>{str(incident.get("mttr", {}).get("seconds_saved_vs_manual", 0))}s</span></div>
-                        <div style={detail_style}>Mode: <span style={{"color": "#e2e8f0"}}>{incident.get("mttr", {}).get("resolution_mode", "")}</span></div>
+                        <div style={detail_style}>Recovery: <span style={{"color": "#e2e8f0", "fontWeight": "600"}}>{safe_mttr("time_to_recovery_seconds")}s</span></div>
+                        <div style={detail_style}>Manual baseline: <span style={{"color": "#718096"}}>{safe_mttr("manual_baseline_seconds")}s</span></div>
+                        <div style={detail_style}>Time saved: <span style={{"color": "#48bb78", "fontWeight": "600"}}>{safe_mttr("seconds_saved_vs_manual")}s</span></div>
+                        <div style={detail_style}>Mode: <span style={{"color": "#e2e8f0"}}>{safe_mttr_mode()}</span></div>
                     </div>
                 </div>
 
