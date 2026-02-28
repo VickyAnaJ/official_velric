@@ -1196,13 +1196,33 @@ def persist_phase_1_incident(incident_id: str, severity: str, deployment_id: str
         latest_metrics_payload=metrics_payload,
         created_at="2026-02-28T00:00:00Z",
     ))[0];
-    incident ++> Alert(
-        alert_id="alert:p95_latency_high",
-        alert_type="p95_latency_high",
-        threshold=1.0,
-        observed_value=metrics.get("vllm:e2e_request_latency_seconds", 0.0),
-        fired_at="2026-02-28T00:00:00Z",
-    );
+    if metrics.get("vllm:e2e_request_latency_seconds", 0.0) > 1.0 {
+        incident ++> Alert(
+            alert_id="alert:p95_latency_high",
+            alert_type="p95_latency_high",
+            threshold=1.0,
+            observed_value=metrics.get("vllm:e2e_request_latency_seconds", 0.0),
+            fired_at="2026-02-28T00:00:00Z",
+        );
+    }
+    if metrics.get("vllm:kv_cache_usage_perc", 0.0) > 0.90 {
+        incident ++> Alert(
+            alert_id="alert:kv_cache_pressure",
+            alert_type="kv_cache_pressure",
+            threshold=0.90,
+            observed_value=metrics.get("vllm:kv_cache_usage_perc", 0.0),
+            fired_at="2026-02-28T00:00:00Z",
+        );
+    }
+    if metrics.get("vllm:num_requests_running", 0.0) > 40.0 {
+        incident ++> Alert(
+            alert_id="alert:request_queue_growth",
+            alert_type="request_queue_growth",
+            threshold=40.0,
+            observed_value=metrics.get("vllm:num_requests_running", 0.0),
+            fired_at="2026-02-28T00:00:00Z",
+        );
+    }
     for metric_node in metric_nodes_from_snapshot(metrics) {
         incident ++> metric_node;
     }
@@ -1225,10 +1245,10 @@ def persist_phase_1_incident(incident_id: str, severity: str, deployment_id: str
         dtype="bfloat16",
     );
     incident ++> Policy(
-        policy_id="policy:phase_1_read_only",
-        action_allowlist=[],
+        policy_id="policy:ops_graph_default",
+        action_allowlist=["shift_traffic", "set_deployment_status", "rollback_config"],
         confidence_threshold=0.80,
-        approval_required=True,
+        approval_required=False,
     );
     return incident;
 }
@@ -1248,6 +1268,7 @@ def:pub trigger_incident(
         metrics_payload=metrics_payload,
     );
     triage_result = root spawn triage_walker(incident_id=incident_id);
+    triage_reports = triage_result.reports if hasattr(triage_result, "reports") else [];
     INCIDENT_EXECUTION_STATE[incident_id] = {
         "incident_id": incident_id,
         "current_stage": "triage_complete",
@@ -1261,7 +1282,7 @@ def:pub trigger_incident(
         "signal_source": signal_source,
         "poll_url": "/walker/get_incident_state/" + incident_id,
         "primary_signals": incident.primary_signal_names,
-        "hypothesis": triage_result[0] if triage_result else {
+        "hypothesis": triage_reports[0] if triage_reports else {
             "incident_type": incident.hypothesis_type,
             "root_cause": incident.hypothesis_summary,
             "confidence": incident.hypothesis_confidence,
@@ -1278,6 +1299,10 @@ def:pub execute_incident(
     require_approval: bool = False,
     force_verification_failure: bool = False,
 ) -> dict {
+    confidence = float(confidence) if isinstance(confidence, str) else confidence;
+    force_fail = (str(force_fail).lower() == "true") if isinstance(force_fail, str) else force_fail;
+    require_approval = (str(require_approval).lower() == "true") if isinstance(require_approval, str) else require_approval;
+    force_verification_failure = (str(force_verification_failure).lower() == "true") if isinstance(force_verification_failure, str) else force_verification_failure;
     incidents = [node for node in [root-->](?:Incident) if node.incident_id == incident_id];
     if incident_id == "" {
         return {
