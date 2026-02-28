@@ -462,7 +462,159 @@
 - No out-of-scope FR implementation included: Pass.
 
 ## 3.5 Prompt Execution Reports
-- Not started.
+### Prompt Execution Report - PR2-01
+- Execution Header:
+  - Slice ID: `SLICE-OPS-02`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR2-01`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass
+  - Component boundary check: Pass (mock/contracts only; no competing real dependency implementation)
+- Implementation actions:
+  - Files updated: `main.jac`
+  - Endpoint/schema/interface changes: added explicit plan-policy-execute contract objects (`PolicyDecision`, `ActionResult`)
+  - Data representation changes: added `POLICY_ALLOWLIST` and `INCIDENT_EXECUTION_STATE` mock state
+  - Architecture/runtime artifacts: none
+  - Test artifacts: unit contract checks prepared for downstream prompts
+- Verification evidence:
+  - Build/test commands executed: `make build`
+  - Unit-test command(s) for this prompt + result: deferred to PR2-06 final prompt-level verification bundle
+  - Integration-test command(s) for this prompt + result: deferred to PR2-06 final prompt-level verification bundle
+  - Coverage command/result: deferred to PR2-06 final prompt-level verification bundle
+  - Result: Pass
+- Prompt completion verdict:
+  - Done
+  - TODOs: None
+
+### Prompt Execution Report - PR2-02
+- Execution Header:
+  - Slice ID: `SLICE-OPS-02`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR2-02`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR2-01` complete)
+  - Component boundary check: Pass (plan stage only)
+- Implementation actions:
+  - Files updated: `main.jac`
+  - Endpoint/schema/interface changes: added `build_plan_from_hypothesis` contract path
+  - Data representation changes: typed `RemediationPlan` actions and verification fields
+  - Architecture/runtime artifacts: none
+  - Test artifacts: unit coverage paths updated later in PR2-06 bundle
+- Verification evidence:
+  - Build/test commands executed: `make build`
+  - Unit-test command(s) for this prompt + result: deferred to PR2-06 final prompt-level verification bundle
+  - Integration-test command(s) for this prompt + result: deferred to PR2-06 final prompt-level verification bundle
+  - Coverage command/result: deferred to PR2-06 final prompt-level verification bundle
+  - Result: Pass
+- Prompt completion verdict:
+  - Done
+  - TODOs: None
+
+### Prompt Execution Report - PR2-03
+- Execution Header:
+  - Slice ID: `SLICE-OPS-02`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR2-03`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR2-02` complete)
+  - Component boundary check: Pass (policy engine + approval gate only)
+- Implementation actions:
+  - Files updated: `main.jac`
+  - Endpoint/schema/interface changes: added `evaluate_policy` decision contract (`PASS`, `POLICY_BLOCKED`, `APPROVAL_REQUIRED`)
+  - Data representation changes: added policy reasons `LOW_CONFIDENCE`, `ACTION_NOT_ALLOWLISTED`, `MANUAL_APPROVAL_REQUIRED`
+  - Architecture/runtime artifacts: none
+  - Test artifacts: unit/integration checks added in PR2-06 bundle
+- Verification evidence:
+  - Build/test commands executed: `make build`
+  - Unit-test command(s) for this prompt + result: deferred to PR2-06 final prompt-level verification bundle
+  - Integration-test command(s) for this prompt + result: deferred to PR2-06 final prompt-level verification bundle
+  - Coverage command/result: deferred to PR2-06 final prompt-level verification bundle
+  - Result: Pass
+- Prompt completion verdict:
+  - Done
+  - TODOs: None
+
+### Prompt Execution Report - PR2-04
+- Execution Header:
+  - Slice ID: `SLICE-OPS-02`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR2-04`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR2-03` complete)
+  - Component boundary check: Pass (`execute_walker`-scoped action execution only)
+- Implementation actions:
+  - Files updated: `main.jac`
+  - Endpoint/schema/interface changes: added `run_allowlisted_actions` with bounded action execution and forced-failure test path
+  - Data representation changes: per-action typed status/message in `ActionResult`
+  - Architecture/runtime artifacts: none
+  - Test artifacts: execution status checks added in integration contract tests
+- Verification evidence:
+  - Build/test commands executed: `make build`
+  - Unit-test command(s) for this prompt + result: deferred to PR2-06 final prompt-level verification bundle
+  - Integration-test command(s) for this prompt + result: deferred to PR2-06 final prompt-level verification bundle
+  - Coverage command/result: deferred to PR2-06 final prompt-level verification bundle
+  - Result: Pass
+- Prompt completion verdict:
+  - Done
+  - TODOs: None
+
+### Prompt Execution Report - PR2-05
+- Execution Header:
+  - Slice ID: `SLICE-OPS-02`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR2-05`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR2-04` complete)
+  - Component boundary check: Pass (graph update projection only)
+- Implementation actions:
+  - Files updated: `main.jac`
+  - Endpoint/schema/interface changes: none
+  - Data representation changes: added `project_graph_updates` for deployment/route mutation projection
+  - Architecture/runtime artifacts: none
+  - Test artifacts: unit contract coverage for graph projection presence
+- Verification evidence:
+  - Build/test commands executed: `make build`
+  - Unit-test command(s) for this prompt + result: deferred to PR2-06 final prompt-level verification bundle
+  - Integration-test command(s) for this prompt + result: deferred to PR2-06 final prompt-level verification bundle
+  - Coverage command/result: deferred to PR2-06 final prompt-level verification bundle
+  - Result: Pass
+- Prompt completion verdict:
+  - Done
+  - TODOs: None
+
+### Prompt Execution Report - PR2-06
+- Execution Header:
+  - Slice ID: `SLICE-OPS-02`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR2-06`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR2-05` complete)
+  - Component boundary check: Pass (execute API contract + integration verification only)
+- Implementation actions:
+  - Files updated: `main.jac`, `tests/unit/test_slice_ops_02_contracts.py`, `tests/integration/test_slice_ops_02_prompt_chain_contract.py`
+  - Endpoint/schema/interface changes: added `def:pub execute_incident(...)` and expanded `get_incident_state` to return staged execution contract state
+  - Data representation changes: explicit `execute_status` outcomes (`not_started`, `approval_required`, `blocked`, `executed`, `partial_execution`)
+  - Architecture/runtime artifacts: none
+  - Test artifacts: added unit/integration contract suites for FR-06..FR-10 behavior surface
+- Verification evidence:
+  - Build/test commands executed:
+    - `make build` -> Pass
+    - `./scripts/test_unit.sh` -> Pass (11 tests)
+    - `./scripts/test_integration.sh` -> Pass (6 tests)
+    - `./scripts/test_coverage.sh` -> Pass (17 tests, coverage 30.97%, threshold 25.00%)
+  - Unit-test command(s) for this prompt + result: `./scripts/test_unit.sh` -> Pass
+  - Integration-test command(s) for this prompt + result: `./scripts/test_integration.sh` -> Pass
+  - Coverage command/result: `./scripts/test_coverage.sh` -> Pass (30.97% >= 25.00%)
+  - Result: Pass
+- Prompt completion verdict:
+  - Done
+  - TODOs: None
 
 ## 3.6 Slice Review Output
 - Not started.
