@@ -6,7 +6,7 @@
 - Current Owner: anajaramillo
 - Workflow Baseline: `docs/workflow_hide/workflow.md` (confidential canonical copy)
 - Active `[WIP]` Slice: `SLICE-OPS-03`
-- Current Gate State: Step 3.3.1 complete for `SLICE-OPS-03` (selected `S2` + `P1`); ready for Step 3.4
+- Current Gate State: Step 3.4 complete for `SLICE-OPS-03` (prompt chain defined); ready for Step 3.5 implementation
 
 ## Slice Registry
 | Slice ID | Capability Statement | Included FR IDs | Relevant NFR IDs | Dependency Grouping Rationale | Status | Start Gate | Owner | Demo/Test Condition | Detail File | Linked FT_IDs |
@@ -27,7 +27,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|
 | SLICE-OPS-01 | anajaramillo | Complete (`Ready`) | Complete (`S2`) | Complete (`P1`) | Complete (`PR-01..PR-06`) | Complete (`Done`) | Complete (`Approved`) | Complete (`N/A`) | Complete (`Ready to Close`) | `docs/status/slices/SLICE-OPS-01.md` |
 | SLICE-OPS-02 | anajaramillo | Complete (`Ready`) | Complete (`S2`) | Complete (`P1`) | Complete (`PR2-01..PR2-06`) | Complete (`Done`) | Complete (`Approved`) | Complete (`N/A`) | Complete (`Ready to Close`) | `docs/status/slices/SLICE-OPS-02.md` |
-| SLICE-OPS-03 | anajaramillo | Complete (`Ready`) | Complete (`S2`) | Complete (`P1`) | Pending | Pending | Pending | Pending | Pending | `docs/status/slices/SLICE-OPS-03.md` |
+| SLICE-OPS-03 | anajaramillo | Complete (`Ready`) | Complete (`S2`) | Complete (`P1`) | Complete (`PR3-01..PR3-06`) | Pending | Pending | Pending | Pending | `docs/status/slices/SLICE-OPS-03.md` |
 
 ## Open Blockers/Escalations
 - None. Active dependency gaps are now explicitly claimed as `FT-OPS-INFRA-01` and `FT-OPS-TEST-01`.
@@ -455,3 +455,20 @@
 - Result: Complete.
 - Selected Pattern ID: `P1`.
 - Next step: proceed to Step 3.4 prompt-chain construction for `SLICE-OPS-03`.
+
+## Step 3.4 Output (`SLICE-OPS-03`)
+### Summary
+- Built ordered prompt chain for selected strategy/pattern (`S2` + `P1`) with 6 single-responsibility prompts:
+  - `PR3-01` verification result contract + evaluator
+  - `PR3-02` rollback contracts + inverse action adapter
+  - `PR3-03` audit entry schema + append-only timeline
+  - `PR3-04` outcome orchestrator (verify -> rollback -> audit)
+  - `PR3-05` visibility payload + MTTR projection
+  - `PR3-06` end-to-end lifecycle API contract verification
+- Ensured dependency ordering places required verify/rollback/audit foundation prompts before lifecycle orchestration prompts.
+- Included all required per-prompt fields: boundaries, inputs/outputs, FR/NFR mapping, unit/integration tests, acceptance checks, coverage expectations, gating rules, and foundation references.
+- Canonical prompt-chain evidence recorded in: `docs/status/slices/SLICE-OPS-03.md`.
+
+### 3.4 Completion verdict
+- Result: Complete.
+- Next step: proceed to Step 3.5 prompt-by-prompt implementation for `SLICE-OPS-03`.

@@ -238,7 +238,137 @@
 - Decision rationale (why it best implements the selected strategy with lowest artificial complexity): `P1` provides the clearest deterministic lifecycle path with explicit verify, rollback, and audit boundaries and straightforward testability.
 
 ## 3.4 Prompt Chain
-Pending Step 3.4.
+### Chain Header
+- References selected Strategy ID (from 3.3): `S2`
+- References selected Pattern ID (from 3.3.1): `P1`
+- Slice ID + included FR/NFR IDs: `SLICE-OPS-03`; FR-11, FR-12, FR-13, FR-14, FR-15; NFR-P-03, NFR-P-04, NFR-U-01, NFR-U-02, NFR-R-02
+
+### Prompt PR3-01 - Verification Result Contract + Evaluator
+- Objective (single responsibility only): implement typed verification result contracts and evaluator logic comparing post-action metrics to recovery conditions.
+- Components touched: verification service module, verification DTO/schema, unit tests.
+- Boundary constraints:
+  - Allowed to touch: verification evaluator and related contracts.
+  - Must-Not-Touch: rollback execution logic and audit persistence logic.
+- Inputs required (from system design docs and prior prompt outputs): `SLICE-OPS-02` action results, verification-condition fields from remediation plans, Step 1.3 verify boundary.
+- Outputs/artifacts expected (files/endpoints/tests/docs): `VerificationResult` contracts, evaluator function, verification unit tests.
+- FR/NFR coverage for this prompt: FR-11; NFR-R-02, NFR-P-03.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): `tests/unit/verification/test_recovery_evaluation.py`.
+  - Integration tests to add/update (if applicable): none.
+  - Required mocks/test doubles and boundaries: mock post-action metric payloads only.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): missing metrics, threshold equality edge, conflicting metric signals.
+- Acceptance checks (clear pass/fail criteria): evaluator returns deterministic pass/fail with explicit reasons for all supported metric conditions.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=90% verification evaluator coverage.
+- Dependency/gating rule (what must be true before running this prompt): none (first prompt).
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-INFRA-01.md`.
+- Foundation handling source: `Claim` (from Step 3.2).
+
+### Prompt PR3-02 - Rollback Contracts and Inverse Action Adapter
+- Objective (single responsibility only): implement rollback result contracts and inverse-action adapters for executed actions.
+- Components touched: rollback service module, inverse adapter contracts, rollback unit tests.
+- Boundary constraints:
+  - Allowed to touch: rollback/inverse-action modules and tests.
+  - Must-Not-Touch: verification evaluator internals and audit rendering logic.
+- Inputs required (from system design docs and prior prompt outputs): execution action results from `SLICE-OPS-02`, PR3-01 verification outputs, Step 1.3 rollback boundary.
+- Outputs/artifacts expected (files/endpoints/tests/docs): rollback contracts, inverse action adapter logic, rollback unit tests.
+- FR/NFR coverage for this prompt: FR-12; NFR-R-02.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): `tests/unit/rollback/test_inverse_action_mapping.py`.
+  - Integration tests to add/update (if applicable): none.
+  - Required mocks/test doubles and boundaries: mock action-result inputs and adapter outcomes.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): no prior actions, unsupported inverse mapping, adapter error path.
+- Acceptance checks (clear pass/fail criteria): rollback produces valid inverse actions only for previously executed allowlisted actions and returns typed `RollbackResult`.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=90% rollback mapping coverage.
+- Dependency/gating rule (what must be true before running this prompt): PR3-01 complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-INFRA-01.md`.
+- Foundation handling source: `Claim` (from Step 3.2).
+
+### Prompt PR3-03 - Audit Entry Schema + Append-Only Timeline Store
+- Objective (single responsibility only): implement append-only audit entry contracts and timeline storage/update logic.
+- Components touched: audit service module, audit entry schema, timeline storage utility.
+- Boundary constraints:
+  - Allowed to touch: audit schema/store modules and tests.
+  - Must-Not-Touch: verification/rollback decision logic.
+- Inputs required (from system design docs and prior prompt outputs): Step 1.3 audit boundary, PR3-01/PR3-02 outputs.
+- Outputs/artifacts expected (files/endpoints/tests/docs): `AuditEntry` contracts, append-only timeline functions, audit unit tests.
+- FR/NFR coverage for this prompt: FR-13; NFR-R-02, NFR-U-02.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): `tests/unit/audit/test_append_only_timeline.py`.
+  - Integration tests to add/update (if applicable): none.
+  - Required mocks/test doubles and boundaries: in-memory timeline store fixture.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): duplicate event prevention policy, empty timeline initialization, write-order integrity.
+- Acceptance checks (clear pass/fail criteria): timeline appends in order and rejects destructive overwrite operations.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=90% audit timeline logic coverage.
+- Dependency/gating rule (what must be true before running this prompt): PR3-01 complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-INFRA-01.md`, `docs/status/foundation/FT-OPS-TEST-01.md`.
+- Foundation handling source: `Claim` for infra, `Use` for test harness.
+
+### Prompt PR3-04 - Outcome Orchestrator (Verify -> Rollback -> Audit)
+- Objective (single responsibility only): implement deterministic outcome orchestrator that runs verification, conditionally triggers rollback, and appends audit entries.
+- Components touched: outcome orchestrator service, lifecycle state transitions, orchestrator tests.
+- Boundary constraints:
+  - Allowed to touch: orchestrator module and lifecycle integration code.
+  - Must-Not-Touch: new planning/execution logic from `SLICE-OPS-02`.
+- Inputs required (from system design docs and prior prompt outputs): PR3-01 verification evaluator, PR3-02 rollback service, PR3-03 audit service, existing incident/action-result state.
+- Outputs/artifacts expected (files/endpoints/tests/docs): orchestration flow function, lifecycle status updates, integration-oriented orchestrator tests.
+- FR/NFR coverage for this prompt: FR-11, FR-12, FR-13; NFR-R-02, NFR-P-03.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): `tests/unit/lifecycle/test_outcome_orchestrator_paths.py`.
+  - Integration tests to add/update (if applicable): `tests/integration/slice_ops_03/test_verify_to_rollback_to_audit_flow.py`.
+  - Required mocks/test doubles and boundaries: mocked metric snapshots and rollback adapter outcomes.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): verify pass (no rollback), verify fail (rollback attempted), rollback failure with partial audit.
+- Acceptance checks (clear pass/fail criteria): orchestrator enforces verify-first ordering, rollback only on verify fail, and always appends audit outcome events.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=85% lifecycle orchestrator coverage.
+- Dependency/gating rule (what must be true before running this prompt): PR3-01, PR3-02, PR3-03 complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-INFRA-01.md`, `docs/status/foundation/FT-OPS-TEST-01.md`.
+- Foundation handling source: `Claim` for infra, `Use` for test harness.
+
+### Prompt PR3-05 - Visibility Payload + MTTR Metrics Projection
+- Objective (single responsibility only): produce visibility payloads combining typed lifecycle outputs, plain-language summaries, and MTTR metrics.
+- Components touched: visibility projection module, MTTR calculator, response serializer tests.
+- Boundary constraints:
+  - Allowed to touch: projection/calculation modules and tests.
+  - Must-Not-Touch: core verify/rollback/audit state machine behavior.
+- Inputs required (from system design docs and prior prompt outputs): PR3-04 lifecycle outputs; baseline/manual timing fields from incident context.
+- Outputs/artifacts expected (files/endpoints/tests/docs): visibility payload builder, MTTR calculation helpers, projection unit tests.
+- FR/NFR coverage for this prompt: FR-14, FR-15; NFR-U-01, NFR-U-02, NFR-P-04.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): `tests/unit/visibility/test_mttr_projection.py`.
+  - Integration tests to add/update (if applicable): extend `tests/integration/slice_ops_03/test_verify_to_rollback_to_audit_flow.py` with visibility assertions.
+  - Required mocks/test doubles and boundaries: deterministic timestamps and baseline timing fixtures.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): missing baseline duration, zero-duration intervals, partially available lifecycle stages.
+- Acceptance checks (clear pass/fail criteria): projection returns typed lifecycle state + plain summary + MTTR values for both success and rollback paths.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=90% MTTR/projection module coverage.
+- Dependency/gating rule (what must be true before running this prompt): PR3-04 complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-TEST-01.md`.
+- Foundation handling source: `Use` (from Step 3.2).
+
+### Prompt PR3-06 - End-to-End Lifecycle API Contract Verification
+- Objective (single responsibility only): validate end-to-end lifecycle API contracts for verify success, verify failure+rollback, and audit/visibility outputs.
+- Components touched: integration test suites, API contract validation checks, workflow evidence docs.
+- Boundary constraints:
+  - Allowed to touch: integration tests, response-contract assertions, status evidence updates.
+  - Must-Not-Touch: out-of-scope new business behavior not tied to FR-11..15.
+- Inputs required (from system design docs and prior prompt outputs): PR3-01..PR3-05 outputs and existing incident execution state.
+- Outputs/artifacts expected (files/endpoints/tests/docs): final end-to-end lifecycle verification tests and contract evidence for review.
+- FR/NFR coverage for this prompt: FR-11..15; NFR-P-03/04, NFR-U-01/02, NFR-R-02.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): `tests/unit/api/test_lifecycle_endpoint_contract.py`.
+  - Integration tests to add/update (if applicable): final matrix in `tests/integration/slice_ops_03/test_verify_to_rollback_to_audit_flow.py`.
+  - Required mocks/test doubles and boundaries: local deterministic adapters only.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): invalid lifecycle request payloads, missing incident/action context, rollback failure path visibility.
+- Acceptance checks (clear pass/fail criteria): lifecycle endpoint contracts are deterministic, typed, and include audit+MTTR visibility outputs for all major paths.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=85% lifecycle API validation coverage.
+- Dependency/gating rule (what must be true before running this prompt): PR3-05 complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-TEST-01.md`.
+- Foundation handling source: `Use` (from Step 3.2).
+
+### Chain-level completion checks
+- All included FRs mapped to at least one prompt: Pass.
+- Relevant NFR constraints mapped across prompts: Pass.
+- Required foundation dependencies from Step 3.2 are represented by explicit prompt(s) before strategy implementation prompts: Pass (`PR3-01`, `PR3-02`, `PR3-03`).
+- All logic-changing prompts include explicit unit-test additions/updates: Pass.
+- No out-of-scope FR implementation included: Pass.
 
 ## 3.5 Prompt Execution Reports
 Pending Step 3.5.
