@@ -236,7 +236,137 @@
 - Decision rationale (why it best implements the selected strategy with lowest artificial complexity): `P1` keeps policy gating explicit, execution bounded, and failure handling deterministic while staying aligned with existing runtime/test foundations.
 
 ## 3.4 Prompt Chain
-Pending Step 3.4.
+### Chain Header
+- References selected Strategy ID (from 3.3): `S2`
+- References selected Pattern ID (from 3.3.1): `P1`
+- Slice ID + included FR/NFR IDs: `SLICE-OPS-02`; FR-06, FR-07, FR-08, FR-09, FR-10; NFR-S-01, NFR-S-02, NFR-S-03, NFR-R-03, NFR-P-02
+
+### Prompt PR2-01 - Policy Contract and Decision Schema Foundation
+- Objective (single responsibility only): define typed policy configuration and policy decision contracts required by planner/executor orchestration.
+- Components touched: policy contract module, DTO/schema definitions, validation helpers.
+- Boundary constraints:
+  - Allowed to touch: new policy schema files, validation functions, policy-related tests.
+  - Must-Not-Touch: execution adapter logic, endpoint orchestration logic, rollback/verify behavior.
+- Inputs required (from system design docs and prior prompt outputs): Step 1.3 Policy Engine boundary; Step 3.2 policy configuration dependency claim.
+- Outputs/artifacts expected (files/endpoints/tests/docs): typed `PolicyConfig`/`PolicyDecision` contracts, validation layer, unit tests, schema notes.
+- FR/NFR coverage for this prompt: FR-07, FR-08; NFR-S-01, NFR-S-02, NFR-S-03.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): `tests/unit/policy/test_policy_contract_validation.py`.
+  - Integration tests to add/update (if applicable): none.
+  - Required mocks/test doubles and boundaries: none (pure deterministic validation).
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): empty allowlist, invalid threshold bounds, approval-required flag permutations.
+- Acceptance checks (clear pass/fail criteria): invalid policy configs are rejected deterministically; valid configs produce stable typed decision defaults.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=90% for policy schema validation module.
+- Dependency/gating rule (what must be true before running this prompt): none (first prompt in chain).
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-INFRA-01.md`.
+- Foundation handling source: `Claim` (from Step 3.2).
+
+### Prompt PR2-02 - Bounded Action Adapter Interfaces
+- Objective (single responsibility only): implement allowlisted execution adapter interfaces and result contracts with strict action-type boundaries.
+- Components touched: action adapter module, action-result DTOs, allowlist guard utilities.
+- Boundary constraints:
+  - Allowed to touch: executor interface files, allowlist checks, action-result serialization.
+  - Must-Not-Touch: planner logic, policy decision logic beyond interface use.
+- Inputs required (from system design docs and prior prompt outputs): Step 1.3 Action Executor constraints; PR2-01 policy contract outputs.
+- Outputs/artifacts expected (files/endpoints/tests/docs): action adapter interfaces, allowlist-enforced executor stub implementations, unit tests.
+- FR/NFR coverage for this prompt: FR-09; NFR-S-01, NFR-R-03.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): `tests/unit/executor/test_allowlist_enforcement.py`.
+  - Integration tests to add/update (if applicable): none.
+  - Required mocks/test doubles and boundaries: mocked tool-call handlers only.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): unknown action type, malformed params, adapter runtime error mapping.
+- Acceptance checks (clear pass/fail criteria): non-allowlisted actions always blocked; allowlisted actions produce typed `ActionResult` contracts.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=90% for allowlist/adapter guards.
+- Dependency/gating rule (what must be true before running this prompt): PR2-01 complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-INFRA-01.md`.
+- Foundation handling source: `Claim` (from Step 3.2).
+
+### Prompt PR2-03 - Planner Module for Typed Remediation Plan
+- Objective (single responsibility only): create deterministic planner module that maps incident context to typed remediation plans for supported incident types.
+- Components touched: planner service, remediation plan DTOs, planner unit tests.
+- Boundary constraints:
+  - Allowed to touch: planner and plan contract code.
+  - Must-Not-Touch: policy evaluator internals, executor internals.
+- Inputs required (from system design docs and prior prompt outputs): `SLICE-OPS-01` incident context contracts; Step 1.3 planner behavior; PR2-01/PR2-02 contracts.
+- Outputs/artifacts expected (files/endpoints/tests/docs): `RemediationPlan` structures, planner logic, planner tests.
+- FR/NFR coverage for this prompt: FR-06; NFR-P-02, NFR-R-03.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): `tests/unit/planner/test_supported_incident_plans.py`.
+  - Integration tests to add/update (if applicable): none.
+  - Required mocks/test doubles and boundaries: mock incident-context provider.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): unsupported incident type, missing incident context fields, low-confidence triage data.
+- Acceptance checks (clear pass/fail criteria): supported incident types produce ordered typed plans; unsupported types fail closed with structured error code.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=90% planner decision coverage.
+- Dependency/gating rule (what must be true before running this prompt): PR2-01 complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-TEST-01.md`.
+- Foundation handling source: `Use` (from Step 3.2).
+
+### Prompt PR2-04 - Policy Gate Evaluator and Approval Pause Handling
+- Objective (single responsibility only): implement policy evaluation against plan actions including confidence threshold and approval-required pause behavior.
+- Components touched: policy evaluator service, approval gate state contract, policy integration tests.
+- Boundary constraints:
+  - Allowed to touch: policy evaluation service and related tests.
+  - Must-Not-Touch: action execution internals except evaluation inputs.
+- Inputs required (from system design docs and prior prompt outputs): PR2-01 policy contracts; PR2-03 plan outputs; Step 1.3 fail-closed policy rules.
+- Outputs/artifacts expected (files/endpoints/tests/docs): policy evaluation module, approval-pending response contract, tests.
+- FR/NFR coverage for this prompt: FR-07, FR-08; NFR-S-02, NFR-S-03, NFR-R-03.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): `tests/unit/policy/test_policy_gate_decisions.py`.
+  - Integration tests to add/update (if applicable): `tests/integration/policy/test_approval_pause_flow.py`.
+  - Required mocks/test doubles and boundaries: mock plan input and policy config only.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): confidence below threshold, approval-required true/false, denied-action cases.
+- Acceptance checks (clear pass/fail criteria): evaluator returns explicit `POLICY_BLOCKED`/`APPROVAL_REQUIRED`/`PASS` outcomes with no ambiguous states.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=90% policy decision branches.
+- Dependency/gating rule (what must be true before running this prompt): PR2-03 complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-INFRA-01.md`, `docs/status/foundation/FT-OPS-TEST-01.md`.
+- Foundation handling source: `Claim` for infra, `Use` for test harness.
+
+### Prompt PR2-05 - Orchestrated Execute Path with Graph State Update
+- Objective (single responsibility only): wire planner + policy + bounded executor into a single orchestrated execute path and persist post-action graph state.
+- Components touched: execution orchestrator service, graph update service, action-result persistence.
+- Boundary constraints:
+  - Allowed to touch: orchestration layer, graph action-result update module, execute endpoint wiring.
+  - Must-Not-Touch: verify/rollback/audit and unrelated UI functionality.
+- Inputs required (from system design docs and prior prompt outputs): PR2-02 adapter contracts, PR2-03 planner output, PR2-04 policy decisions, existing graph store from `SLICE-OPS-01`.
+- Outputs/artifacts expected (files/endpoints/tests/docs): orchestrated execute API path, graph state update logic, integration tests.
+- FR/NFR coverage for this prompt: FR-09, FR-10; NFR-S-01, NFR-S-02, NFR-R-03, NFR-P-02.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): `tests/unit/orchestrator/test_execute_pipeline_order.py`.
+  - Integration tests to add/update (if applicable): `tests/integration/slice_ops_02/test_plan_policy_execute_flow.py`.
+  - Required mocks/test doubles and boundaries: mock action adapters for deterministic execution effects.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): action adapter failure, empty action plan, policy denial before execution.
+- Acceptance checks (clear pass/fail criteria): execution only happens after policy pass; graph action-state updates reflect executed actions exactly once.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=85% orchestration flow coverage.
+- Dependency/gating rule (what must be true before running this prompt): PR2-02, PR2-03, PR2-04 complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-INFRA-01.md`, `docs/status/foundation/FT-OPS-TEST-01.md`.
+- Foundation handling source: `Claim` for infra, `Use` for test harness.
+
+### Prompt PR2-06 - End-to-End Slice API Contract Verification
+- Objective (single responsibility only): validate full slice API contract behavior for plan/policy/execute outcomes and document readiness signals.
+- Components touched: API contract tests, response schema checks, status docs updates for verification evidence.
+- Boundary constraints:
+  - Allowed to touch: integration tests and API response-shape checks.
+  - Must-Not-Touch: new business logic outside `SLICE-OPS-02` FR scope.
+- Inputs required (from system design docs and prior prompt outputs): PR2-05 implementation output and all prior prompt artifacts.
+- Outputs/artifacts expected (files/endpoints/tests/docs): end-to-end API verification tests for success, policy block, approval-required, and action failure paths.
+- FR/NFR coverage for this prompt: FR-06, FR-07, FR-08, FR-09, FR-10; NFR-S-01/02/03, NFR-R-03, NFR-P-02.
+- Test plan for this prompt:
+  - Unit tests to add/update (test IDs/files): `tests/unit/api/test_execute_endpoint_contract.py`.
+  - Integration tests to add/update (if applicable): extend `tests/integration/slice_ops_02/test_plan_policy_execute_flow.py` with failure-mode matrix.
+  - Required mocks/test doubles and boundaries: use local deterministic adapter doubles only; no live external services.
+  - Edge cases mapped to tests (null/empty/boundary/error/concurrency where applicable): missing request fields, unsupported incident type, disallowed action request, approval token missing.
+- Acceptance checks (clear pass/fail criteria): endpoint contract returns deterministic typed outcomes for all main and failure paths.
+- Unit-test coverage expectation (required when prompt changes deterministic logic): >=85% API-contract validation module coverage.
+- Dependency/gating rule (what must be true before running this prompt): PR2-05 complete.
+- Foundation detail file reference(s): `docs/status/foundation/FT-OPS-TEST-01.md`.
+- Foundation handling source: `Use` (from Step 3.2).
+
+### Chain-level completion checks
+- All included FRs mapped to at least one prompt: Pass.
+- Relevant NFR constraints mapped across prompts: Pass.
+- Required foundation dependencies from Step 3.2 are represented by explicit prompt(s) before strategy implementation prompts: Pass (`PR2-01`, `PR2-02`).
+- All logic-changing prompts include explicit unit-test additions/updates: Pass.
+- No out-of-scope FR implementation included: Pass.
 
 ## 3.5 Prompt Execution Reports
 Pending Step 3.5.
