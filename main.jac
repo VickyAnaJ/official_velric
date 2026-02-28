@@ -1452,69 +1452,69 @@ cl def:pub app() -> JsxElement {
 
     def extract_display() -> None {
         if not incident { return; }
-        inc_id = incident["incident_id"] if "incident_id" in incident else "";
-        inc_severity = incident["severity"] if "severity" in incident else "";
-        inc_status = incident["status"] if "status" in incident else "";
-        inc_stage = incident["current_stage"] if "current_stage" in incident else "";
-        sigs = incident["primary_signals"] if "primary_signals" in incident else [];
-        inc_signals = ", ".join(sigs) if sigs else "";
+        inc_id = incident["incident_id"] or "";
+        inc_severity = incident["severity"] or "";
+        inc_status = incident["status"] or "";
+        inc_stage = incident["current_stage"] or "";
+        sigs = incident["primary_signals"] or [];
+        inc_signals = sigs.join(", ") if sigs else "";
 
         sev_color = "#e53e3e" if inc_severity == "critical" else ("#dd6b20" if inc_severity == "high" else "#718096");
         stat_color = "#38a169" if inc_status == "resolved" else ("#e53e3e" if inc_status == "active" else "#718096");
 
-        hyp = incident["hypothesis"] if "hypothesis" in incident else {};
-        hyp_type = hyp["incident_type"] if hyp and "incident_type" in hyp else "";
-        hyp_cause = hyp["root_cause"] if hyp and "root_cause" in hyp else "";
-        hyp_conf = str(hyp["confidence"]) if hyp and "confidence" in hyp else "0";
+        hyp = incident["hypothesis"] or {};
+        hyp_type = hyp["incident_type"] or "";
+        hyp_cause = hyp["root_cause"] or "";
+        hyp_conf = String(hyp["confidence"] or 0);
 
-        plan = incident["plan"] if "plan" in incident else {};
-        acts = plan["actions"] if plan and "actions" in plan else [];
-        plan_count = str(len(acts));
+        plan = incident["plan"] or {};
+        acts = plan["actions"] or [];
+        plan_count = String(acts.length);
 
-        pd = incident["policy_decision"] if "policy_decision" in incident else {};
-        pol_status = pd["status"] if pd and "status" in pd else "N/A";
+        pd = incident["policy_decision"] or {};
+        pol_status = pd["status"] or "N/A";
         pol_color = "#38a169" if pol_status == "PASS" else ("#e53e3e" if pol_status == "POLICY_BLOCKED" else "#dd6b20");
 
-        ver = incident["verification"] if "verification" in incident else {};
-        ver_passed = ver["passed"] if ver and "passed" in ver else False;
-        ver_status_raw = ver["status"] if ver and "status" in ver else "N/A";
-        ver_status = ver_status_raw.upper() if ver_status_raw else "N/A";
+        ver = incident["verification"] or {};
+        ver_passed = ver["passed"] or False;
+        ver_status_raw = ver["status"] or "N/A";
+        ver_status = ver_status_raw.toUpperCase() if ver_status_raw else "N/A";
         ver_color = "#38a169" if ver_passed else "#e53e3e";
 
-        rb = incident["rollback"] if "rollback" in incident else {};
-        rb_triggered = rb["triggered"] if rb and "triggered" in rb else False;
-        rb_status = rb["status"] if rb and "status" in rb else "not_needed";
+        rb = incident["rollback"] or {};
+        rb_triggered = rb["triggered"] or False;
+        rb_status = rb["status"] or "not_needed";
         rb_color = "#e53e3e" if rb_triggered else "#718096";
 
-        action_results = incident["action_results"] if "action_results" in incident else [];
+        action_results = incident["action_results"] or [];
         action_lines = [];
         for a in action_results {
-            a_status = a["status"] if "status" in a else "";
-            a_type = a["action_type"] if "action_type" in a else "";
-            a_target = a["target"] if "target" in a else "";
+            a_status = a["status"] or "";
+            a_type = a["action_type"] or "";
+            a_target = a["target"] or "";
             mark = "+" if a_status == "succeeded" else "x";
-            action_lines.append(mark + " " + a_type + " -> " + a_target);
+            action_lines.push(mark + " " + a_type + " -> " + a_target);
         }
-        actions_text = "\n".join(action_lines) if action_lines else "No actions executed";
+        actions_text = action_lines.join("\n") if action_lines.length > 0 else "No actions executed";
 
-        audit_entries = incident["audit"] if "audit" in incident else [];
+        audit_entries = incident["audit"] or [];
         audit_lines = [];
         for entry in audit_entries {
-            e_step = entry["step"] if "step" in entry else "";
-            e_summary = entry["plain_summary"] if "plain_summary" in entry else "";
-            audit_lines.append("[" + e_step.upper() + "] " + e_summary);
+            e_step = entry["step"] or "";
+            e_summary = entry["plain_summary"] or "";
+            audit_lines.push("[" + e_step.toUpperCase() + "] " + e_summary);
         }
-        audit_text = "\n".join(audit_lines) if audit_lines else "No audit entries";
+        audit_text = audit_lines.join("\n") if audit_lines.length > 0 else "No audit entries";
 
-        mttr = incident["mttr"] if "mttr" in incident else {};
-        recovery = mttr["time_to_recovery_seconds"] if mttr and "time_to_recovery_seconds" in mttr else 0;
-        baseline = mttr["manual_baseline_seconds"] if mttr and "manual_baseline_seconds" in mttr else 1800;
-        saved = mttr["seconds_saved_vs_manual"] if mttr and "seconds_saved_vs_manual" in mttr else 0;
-        mttr_recovery = str(recovery);
-        mttr_baseline = str(baseline);
-        mttr_saved = str(saved);
-        mttr_mode = mttr["resolution_mode"] if mttr and "resolution_mode" in mttr else "";
-        pct_saved = str(round((saved / baseline) * 100)) if baseline > 0 else "0";
+        mttr = incident["mttr"] or {};
+        recovery = mttr["time_to_recovery_seconds"] or 0;
+        baseline = mttr["manual_baseline_seconds"] or 1800;
+        saved = mttr["seconds_saved_vs_manual"] or 0;
+        mttr_recovery = String(recovery);
+        mttr_baseline = String(baseline);
+        mttr_saved = String(saved);
+        mttr_mode = mttr["resolution_mode"] or "";
+        pct_saved = String(Math.round((saved / baseline) * 100)) if baseline > 0 else "0";
     }
 
     async def refresh_incident() -> None {
@@ -1607,8 +1607,8 @@ cl def:pub app() -> JsxElement {
                         <div style={label_style}>Incident</div>
                         <div style={{"fontSize": "18px", "fontWeight": "700", "color": "#fff", "marginBottom": "8px"}}>{inc_id}</div>
                         <div style={{"display": "flex", "gap": "8px", "marginBottom": "10px"}}>
-                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": sev_color, "color": "#fff"}}>{inc_severity.upper()}</span>
-                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": stat_color, "color": "#fff"}}>{inc_status.upper()}</span>
+                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": sev_color, "color": "#fff"}}>{inc_severity.toUpperCase()}</span>
+                            <span style={{"fontSize": "11px", "fontWeight": "600", "padding": "2px 8px", "borderRadius": "4px", "backgroundColor": stat_color, "color": "#fff"}}>{inc_status.toUpperCase()}</span>
                         </div>
                         <div style={detail_style}>Stage: <span style={{"color": "#e2e8f0", "fontWeight": "600"}}>{inc_stage}</span></div>
                         <div style={detail_style}>Signals: <span style={{"color": "#e2e8f0"}}>{inc_signals}</span></div>
