@@ -18,10 +18,20 @@ Provides slice-neutral deterministic test harness and fixture conventions shared
 ## Activity Log
 - Claimed during Step 3.2 dependency discovery for `SLICE-OPS-01`.
 - Initial contract established; implementation deferred to Step 3.5 prompts.
+- Step 3.5 `PR-03`: implemented deterministic test fixtures, unit/integration runners, and enforced coverage gate tooling.
+- Step 3.5 `PR-04`: added schema/mapper test suites.
+- Step 3.5 `PR-05`: added triage/classifier test suites.
+- Step 3.5 `PR-06`: added incident controller validation tests and end-to-end slice integration tests.
 
 ## Verification Evidence
 - Claim recorded in `docs/STATUS.md` Foundation Task Registry.
 - Linked from `docs/status/slices/SLICE-OPS-01.md` dependency output.
+- `python3 -m unittest tests.unit.test_harness.test_fixture_determinism -v` -> Pass.
+- `python3 -m unittest tests.unit.mapper.test_signal_to_graph_mapping tests.unit.schema.test_node_contracts -v` -> Pass.
+- `python3 -m unittest tests.unit.triage.test_classifier_bounds tests.unit.triage.test_hypothesis_shape -v` -> Pass.
+- `python3 -m unittest tests.unit.api.test_incident_controller_validation -v` -> Pass.
+- `./scripts/test.sh` -> Pass (unit + integration).
+- `./scripts/test_coverage.sh` -> Pass (`27.08%` vs threshold `25.00%`).
 
 ## Closure
 - Result: In Progress.

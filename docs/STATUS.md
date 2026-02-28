@@ -6,7 +6,7 @@
 - Current Owner: anajaramillo
 - Workflow Baseline: `docs/workflow_hide/workflow.md` (confidential canonical copy)
 - Active `[WIP]` Slice: `SLICE-OPS-01`
-- Current Gate State: Step 3.4 complete for `SLICE-OPS-01` (prompt chain defined); ready for Step 3.5 execution
+- Current Gate State: Step 3.5 complete for `SLICE-OPS-01` (PR-01..PR-06 executed); ready for Step 3.6 review
 
 ## Slice Registry
 | Slice ID | Capability Statement | Included FR IDs | Relevant NFR IDs | Dependency Grouping Rationale | Status | Start Gate | Owner | Demo/Test Condition | Detail File | Linked FT_IDs |
@@ -25,7 +25,7 @@
 ## Gate Ledger (3.2 through 3.8)
 | Work Item | Owner | Gate 3.2 | Gate 3.3 | Gate 3.3.1 | Gate 3.4 | Gate 3.5 | Gate 3.6 | Gate 3.7 | Gate 3.8 | Detail File |
 |---|---|---|---|---|---|---|---|---|---|---|
-| SLICE-OPS-01 | anajaramillo | Complete (`Ready`) | Complete (`S2`) | Complete (`P1`) | Complete (`PR-01..PR-06`) | Pending | Pending | Pending | Pending | `docs/status/slices/SLICE-OPS-01.md` |
+| SLICE-OPS-01 | anajaramillo | Complete (`Ready`) | Complete (`S2`) | Complete (`P1`) | Complete (`PR-01..PR-06`) | Complete (`Done`) | Pending | Pending | Pending | `docs/status/slices/SLICE-OPS-01.md` |
 | SLICE-OPS-02 | anajaramillo | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending | `docs/status/slices/SLICE-OPS-02.md` (on activation) |
 | SLICE-OPS-03 | anajaramillo | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending | `docs/status/slices/SLICE-OPS-03.md` (on activation) |
 
@@ -154,3 +154,38 @@
 ### 3.4 Completion verdict
 - Result: Complete.
 - Next step: proceed to Step 3.5 prompt-by-prompt implementation.
+
+## Step 3.5 Output (`SLICE-OPS-01`)
+### Summary
+- Executed full prompt chain in order: `PR-01` -> `PR-02` -> `PR-03` -> `PR-04` -> `PR-05` -> `PR-06`.
+- Implemented contract-first runtime for SLICE-OPS-01 under `services/ops_graph/`:
+  - runtime/config bootstrap
+  - mock vLLM metrics source + parser
+  - typed incident contracts + in-memory graph store
+  - triage classifier and orchestration path
+  - incident API endpoints (`POST /incident/trigger`, `GET /incident/{id}`, `GET /metrics`)
+- Implemented deterministic test harness and enforced coverage gate:
+  - test runners in `scripts/`
+  - coverage gate tooling in `tools/check_coverage.py` with threshold config
+  - unit/integration suites under `tests/unit` and `tests/integration`
+- Appended per-prompt implementation reports to `docs/status/slices/SLICE-OPS-01.md`.
+- Appended linked foundation task updates to:
+  - `docs/status/foundation/FT-OPS-INFRA-01.md`
+  - `docs/status/foundation/FT-OPS-TEST-01.md`
+
+### Verification evidence
+- Build command:
+  - `make build` -> Pass (placeholder build target currently defined)
+- Unit tests:
+  - `./scripts/test_unit.sh` -> Pass (12 tests)
+- Integration tests:
+  - `./scripts/test_integration.sh` -> Pass (5 tests)
+- Full test run:
+  - `./scripts/test.sh` -> Pass
+- Coverage gate:
+  - `./scripts/test_coverage.sh` -> Pass (`27.08%` >= threshold `25.00%`)
+
+### 3.5 Completion verdict
+- Result: Complete.
+- Prompt verdicts: `PR-01` Done, `PR-02` Done, `PR-03` Done, `PR-04` Done, `PR-05` Done, `PR-06` Done.
+- Next step: proceed to Step 3.6 slice review.

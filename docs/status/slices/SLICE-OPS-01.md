@@ -378,7 +378,167 @@
 - No out-of-scope FR implementation included: Pass.
 
 ## 3.5 Prompt Execution Reports
-Pending Step 3.5.
+### Prompt Execution Report - PR-01
+- Execution Header:
+  - Slice ID: `SLICE-OPS-01`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR-01`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass.
+  - Component boundary check: Pass (runtime/config scaffold only).
+- Implementation actions:
+  - Files created/updated: `services/ops_graph/config.py`, `services/ops_graph/app.py`, `services/ops_graph/__init__.py`, `tests/unit/runtime/test_bootstrap_contract.py`, `tests/support/deterministic.py`.
+  - Endpoint/schema/interface changes: introduced `create_app()` runtime bootstrap contract.
+  - Data representation changes: none (bootstrap stage).
+  - Test artifacts created/updated: runtime bootstrap unit tests.
+- Verification evidence:
+  - Build/test commands executed:
+    - `python3 -m unittest tests.unit.runtime.test_bootstrap_contract -v`
+  - Unit-test command(s) for this prompt + result: Pass (2 tests).
+  - Integration-test command(s) for this prompt + result: N/A.
+  - Coverage command/result for affected areas: covered by slice-level coverage gate in PR-03.
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - TODOs (out-of-scope): None.
+
+### Prompt Execution Report - PR-02
+- Execution Header:
+  - Slice ID: `SLICE-OPS-01`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR-02`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR-01` complete).
+  - Component boundary check: Pass (mock metrics source only).
+- Implementation actions:
+  - Files created/updated: `services/ops_graph/mock_metrics.py`, `services/ops_graph/app.py`, `tests/unit/mock_metrics/test_metric_payload_names.py`, `tests/integration/mock_metrics/test_metrics_endpoint_http.py`.
+  - Endpoint/schema/interface changes: implemented `GET /metrics` endpoint returning Prometheus-style required metric names.
+  - Data representation changes: added parser enforcing required metric key set.
+  - Test artifacts created/updated: unit metric-payload tests and HTTP integration tests for `/metrics`.
+- Verification evidence:
+  - Build/test commands executed:
+    - `python3 -m unittest tests.unit.mock_metrics.test_metric_payload_names -v`
+    - `python3 -m unittest tests.integration.mock_metrics.test_metrics_endpoint_http -v`
+  - Unit-test command(s) for this prompt + result: Pass (2 tests).
+  - Integration-test command(s) for this prompt + result: Pass (2 tests).
+  - Coverage command/result for affected areas: included in slice-level coverage gate.
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - TODOs (out-of-scope): None.
+
+### Prompt Execution Report - PR-03
+- Execution Header:
+  - Slice ID: `SLICE-OPS-01`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR-03`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR-01` complete).
+  - Component boundary check: Pass (test harness/coverage tooling only).
+- Implementation actions:
+  - Files created/updated: `tests/support/deterministic.py`, `tests/unit/test_harness/test_fixture_determinism.py`, `scripts/test.sh`, `scripts/test_unit.sh`, `scripts/test_integration.sh`, `scripts/test_coverage.sh`, `tools/check_coverage.py`, `tools/coverage_threshold.json`, `tests/__init__.py` and test package `__init__.py` files.
+  - Endpoint/schema/interface changes: none.
+  - Data representation changes: deterministic fixture contract and initial enforced coverage threshold (`25%` baseline).
+  - Test artifacts created/updated: deterministic fixture unit tests; full test command wiring.
+- Verification evidence:
+  - Build/test commands executed:
+    - `python3 -m unittest tests.unit.test_harness.test_fixture_determinism -v`
+    - `./scripts/test_coverage.sh`
+  - Unit-test command(s) for this prompt + result: Pass (2 tests).
+  - Integration-test command(s) for this prompt + result: Indirect via coverage gate (all tests run).
+  - Coverage command/result for affected areas:
+    - `./scripts/test_coverage.sh` -> `Coverage (approx): 27.08% (threshold 25.00%)` Pass.
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - TODOs (out-of-scope): raise coverage threshold in later slices as codebase matures.
+
+### Prompt Execution Report - PR-04
+- Execution Header:
+  - Slice ID: `SLICE-OPS-01`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR-04`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR-02` and `PR-03` complete).
+  - Component boundary check: Pass (graph schema and mapper only).
+- Implementation actions:
+  - Files created/updated: `services/ops_graph/contracts.py`, `services/ops_graph/graph.py`, `services/ops_graph/mock_metrics.py`, `tests/unit/mapper/test_signal_to_graph_mapping.py`, `tests/unit/schema/test_node_contracts.py`.
+  - Endpoint/schema/interface changes: introduced typed `IncidentRecord`/`IncidentHypothesis` and in-memory typed graph store contract.
+  - Data representation changes: required metric parse contract and typed incident persistence shape.
+  - Test artifacts created/updated: schema/mapper unit tests.
+- Verification evidence:
+  - Build/test commands executed:
+    - `python3 -m unittest tests.unit.mapper.test_signal_to_graph_mapping tests.unit.schema.test_node_contracts -v`
+  - Unit-test command(s) for this prompt + result: Pass (2 tests).
+  - Integration-test command(s) for this prompt + result: N/A.
+  - Coverage command/result for affected areas: included in slice-level coverage gate.
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - TODOs (out-of-scope): persistent graph backend beyond in-memory store.
+
+### Prompt Execution Report - PR-05
+- Execution Header:
+  - Slice ID: `SLICE-OPS-01`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR-05`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR-04` complete).
+  - Component boundary check: Pass (triage/classifier scope only).
+- Implementation actions:
+  - Files created/updated: `services/ops_graph/triage.py`, `services/ops_graph/orchestrator.py`, `tests/unit/triage/test_classifier_bounds.py`, `tests/unit/triage/test_hypothesis_shape.py`.
+  - Endpoint/schema/interface changes: added bounded classifier and fail-closed manual-review behavior.
+  - Data representation changes: typed hypothesis output path (`incident_type`, `confidence`, `summary`).
+  - Test artifacts created/updated: triage/classifier unit tests.
+- Verification evidence:
+  - Build/test commands executed:
+    - `python3 -m unittest tests.unit.triage.test_classifier_bounds tests.unit.triage.test_hypothesis_shape -v`
+  - Unit-test command(s) for this prompt + result: Pass (3 tests).
+  - Integration-test command(s) for this prompt + result: N/A.
+  - Coverage command/result for affected areas: included in slice-level coverage gate.
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - TODOs (out-of-scope): byLLM-backed classifier integration for future slices.
+
+### Prompt Execution Report - PR-06
+- Execution Header:
+  - Slice ID: `SLICE-OPS-01`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR-06`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR-01`..`PR-05` complete).
+  - Component boundary check: Pass (incident API orchestration only).
+- Implementation actions:
+  - Files created/updated: `services/ops_graph/app.py`, `tests/unit/api/test_incident_controller_validation.py`, `tests/integration/slice_ops_01/test_incident_ingest_to_triage_flow.py`.
+  - Endpoint/schema/interface changes: implemented `POST /incident/trigger` and `GET /incident/{id}` orchestration endpoints.
+  - Data representation changes: incident response includes typed hypothesis, `idempotent` marker, fail-closed error payloads.
+  - Test artifacts created/updated: controller validation unit tests + end-to-end integration tests for trigger->fetch and fail-closed paths.
+- Verification evidence:
+  - Build/test commands executed:
+    - `make build`
+    - `python3 -m unittest tests.unit.api.test_incident_controller_validation -v`
+    - `python3 -m unittest tests.integration.slice_ops_01.test_incident_ingest_to_triage_flow -v`
+    - `./scripts/test.sh`
+  - Unit-test command(s) for this prompt + result: Pass.
+  - Integration-test command(s) for this prompt + result: Pass (3 tests in slice flow suite; full integration suite pass).
+  - Coverage command/result for affected areas: `./scripts/test_coverage.sh` Pass (`27.08% >= 25.00%`).
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - TODOs (out-of-scope): UI panel integration and MTTR dashboard belong to later slice.
 
 ## 3.6 Slice Review Output
 Pending Step 3.6.

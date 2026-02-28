@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "test:integration: no integration test suites yet (to be added per active slice)."
+python3 -m unittest discover -s tests/integration -p 'test_*.py' -v
