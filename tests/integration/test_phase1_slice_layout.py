@@ -14,19 +14,21 @@ class TestPhase1SliceLayout(unittest.TestCase):
         self.assertIn('"primary_signals": incident.primary_signal_names', source)
         self.assertIn('"poll_url": "/walker/get_incident_state/" + incident_id', source)
 
-    def test_get_incident_state_returns_typed_hypothesis_shape(self) -> None:
+    def test_get_incident_state_returns_typed_lifecycle_shape(self) -> None:
         source = (ROOT / "main.jac").read_text()
         self.assertIn('"current_stage": incident.current_stage', source)
-        self.assertIn('"hypothesis": {', source)
-        self.assertIn('"incident_type": incident.hypothesis_type', source)
+        self.assertIn('"hypothesis": hypothesis_payload(hypothesis_from_incident(incident))', source)
+        self.assertIn('"verification": verification_payload(None)', source)
+        self.assertIn('"audit": []', source)
         self.assertIn('"requires_manual_review": incident.requires_manual_review', source)
 
-    def test_phase1_ui_copy_mentions_incident_and_typed_decisions(self) -> None:
+    def test_ui_copy_mentions_incident_lifecycle_and_audit(self) -> None:
         source = (ROOT / "main.jac").read_text()
-        self.assertIn("Walker-native inference incident response Phase 1 baseline.", source)
+        self.assertIn("Walker-native inference incident response with verification, rollback, audit, and MTTR visibility.", source)
         self.assertIn("<h2>Incident Feed</h2>", source)
-        self.assertIn("Current stage:", source)
+        self.assertIn("Verification:", source)
         self.assertIn("<h2>Typed Decisions</h2>", source)
+        self.assertIn("Audit entries:", source)
 
 
 if __name__ == "__main__":

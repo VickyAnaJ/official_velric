@@ -5,33 +5,34 @@
 - Mode: Collaborative
 - Current Owner: Shivaganesh, Ana, Keilly
 - Workflow Baseline: `workflow_hide/WORKFLOW.md` (confidential canonical copy)
-- Active `[WIP]` Slice: `SLICE-OPS-03`
-- Current Gate State: Steps `3.0`, `3.0.1`, and `3.1` complete; Step `3.2` complete for all three slices; `SLICE-OPS-01` and `SLICE-OPS-02` are closed through Step `3.8`; Step `3.3` remains next for `SLICE-OPS-03`
+- Active `[WIP]` Slice: `None`
+- Current Gate State: Steps `3.0`, `3.0.1`, `3.1`, and `3.2` are complete; all three slices are now closed through Step `3.8`
 
 ## Slice Registry
-| Slice ID | Capability Statement | Included FR IDs | Relevant NFR IDs | Dependency Grouping Rationale | Status | Start Gate | Owner | Demo/Test Condition | Detail File | Linked FT_IDs |
-|---|---|---|---|---|---|---|---|---|---|---|
-| SLICE-OPS-01 | Incident intake and typed graph triage for vLLM latency incidents | FR-01, FR-02, FR-03, FR-04, FR-05, FR-16 | NFR-P-01, NFR-P-02, NFR-U-01, NFR-U-02, NFR-R-01, NFR-C-01, NFR-C-02 | Phase 1 baseline from the design doc: establish Jac graph entities, signal ingestion, `triage_walker`, typed hypothesis generation, and initial visible incident state before any planning or execution logic exists | [Done] | Closed | Shivaganesh | Trigger incident, ingest real-named mock vLLM metrics, persist typed graph state, and return typed triage output plus initial visible incident state | `docs/status/slices/SLICE-OPS-01.md` | FT-OPS-INFRA-01 |
-| SLICE-OPS-02 | Policy-gated remediation planning and bounded execution | FR-06, FR-07, FR-08, FR-09, FR-10 | NFR-S-01, NFR-S-02, NFR-S-03, NFR-R-03, NFR-P-02 | Phase 2 pipeline expansion from the design doc: depends on triage outputs, typed graph contracts, policy model, and approved action boundaries established by SLICE-OPS-01, now reconciled against the closed Phase 1 baseline | [Done] | Closed | Ana | Generate a typed remediation plan, expose approval-gated behavior, and apply only allowlisted bounded actions with graph-state updates | `docs/status/slices/SLICE-OPS-02.md` | FT-OPS-INFRA-01 |
-| SLICE-OPS-03 | Verification, rollback safety, audit timeline, and demo visibility | FR-11, FR-12, FR-13, FR-14, FR-15 | NFR-P-03, NFR-P-04, NFR-U-01, NFR-U-02, NFR-R-02 | Phase 2 plus Phase 3 closure from the design doc: depends on execution outputs, lifecycle state, audit entities, frontend polling, and MTTR display paths created by prior slices, but can proceed in parallel using explicit mocks/contracts from Step `3.2` | [WIP] | Active | Keilly | Verification outcomes drive rollback, append-only audit entries, 4-panel visibility, and MTTR display in the Jac app | `docs/status/slices/SLICE-OPS-03.md` | FT-OPS-INFRA-01, FT-OPS-TEST-01 |
+| Slice ID | Capability Statement | Included FR IDs | Relevant NFR IDs | Dependency Grouping Rationale | Status | Start Gate | Expected Runtime | Actual Runtime | Runtime Match | Owner | Demo/Test Condition | Detail File | Linked FT_IDs |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| SLICE-OPS-01 | Incident intake and typed graph triage for vLLM latency incidents | FR-01, FR-02, FR-03, FR-04, FR-05, FR-16 | NFR-P-01, NFR-P-02, NFR-U-01, NFR-U-02, NFR-R-01, NFR-C-01, NFR-C-02 | Phase 1 baseline from the design doc: establish Jac graph entities, signal ingestion, `triage_walker`, typed hypothesis generation, and initial visible incident state before any planning or execution logic exists | [Done] | Closed | Jac/Jaseci | Jac/Jaseci | Pass | Shivaganesh | Trigger incident, ingest real-named mock vLLM metrics, persist typed graph state, and return typed triage output plus initial visible incident state | `docs/status/slices/SLICE-OPS-01.md` | FT-OPS-INFRA-01 |
+| SLICE-OPS-02 | Policy-gated remediation planning and bounded execution | FR-06, FR-07, FR-08, FR-09, FR-10 | NFR-S-01, NFR-S-02, NFR-S-03, NFR-R-03, NFR-P-02 | Phase 2 pipeline expansion from the design doc: depends on triage outputs, typed graph contracts, policy model, and approved action boundaries established by SLICE-OPS-01, now reconciled against the closed Phase 1 baseline | [Done] | Closed | Jac/Jaseci | Jac/Jaseci | Pass | Ana | Generate a typed remediation plan, expose approval-gated behavior, and apply only allowlisted bounded actions with graph-state updates | `docs/status/slices/SLICE-OPS-02.md` | FT-OPS-INFRA-01 |
+| SLICE-OPS-03 | Verification, rollback safety, audit timeline, and demo visibility | FR-11, FR-12, FR-13, FR-14, FR-15 | NFR-P-03, NFR-P-04, NFR-U-01, NFR-U-02, NFR-R-02 | Phase 2 plus Phase 3 closure from the design doc: depends on execution outputs, lifecycle state, audit entities, frontend polling, and MTTR display paths created by prior slices, but can proceed in parallel using explicit mocks/contracts from Step `3.2` | [Done] | Closed | Jac/Jaseci | Jac/Jaseci | Pass | Keilly | Verification outcomes drive rollback, append-only audit entries, 4-panel visibility, and MTTR display in the Jac app | `docs/status/slices/SLICE-OPS-03.md` | FT-OPS-INFRA-01, FT-OPS-TEST-01 |
 
 ## Foundation Task Registry
 | FT_ID | Scope/Contract | Status | Owner | Linked Slice IDs | Detail File |
 |---|---|---|---|---|---|
 | FT-TBD-BOOTSTRAP | One-time repository/bootstrap scaffolding for workflow Steps `3.0` and `3.0.1` only | [Done] | anajaramillo | N/A | `docs/status/foundation/FT-TBD-BOOTSTRAP.md` |
-| FT-OPS-INFRA-01 | Shared Jac/Jaseci runtime and slice-neutral plumbing needed by active slices | [WIP] | Shivaganesh | SLICE-OPS-01, SLICE-OPS-02, SLICE-OPS-03 | `docs/status/foundation/FT-OPS-INFRA-01.md` |
-| FT-OPS-TEST-01 | Shared deterministic test harness and coverage plumbing for slice work | [WIP] | Keilly | SLICE-OPS-03 | `docs/status/foundation/FT-OPS-TEST-01.md` |
+| FT-OPS-INFRA-01 | Shared Jac/Jaseci runtime and slice-neutral plumbing needed by active slices | [Done] | Shivaganesh | SLICE-OPS-01, SLICE-OPS-02, SLICE-OPS-03 | `docs/status/foundation/FT-OPS-INFRA-01.md` |
+| FT-OPS-TEST-01 | Shared deterministic test harness and coverage plumbing for slice work | [Done] | Keilly | SLICE-OPS-03 | `docs/status/foundation/FT-OPS-TEST-01.md` |
 
 ## Gate Ledger (3.2 through 3.8)
 | Work Item | Owner | Gate 3.2 | Gate 3.3 | Gate 3.3.1 | Gate 3.4 | Gate 3.5 | Gate 3.6 | Gate 3.7 | Gate 3.8 | Detail File |
 |---|---|---|---|---|---|---|---|---|---|---|
 | SLICE-OPS-01 | Shivaganesh | Complete (`Ready`) | Complete (`S1`) | Complete (`P1`) | Complete (`PR1-01..PR1-05`) | Complete (`Done`) | Complete (`Pass`) | Not Started | Complete (`Ready to Close`) | `docs/status/slices/SLICE-OPS-01.md` |
 | SLICE-OPS-02 | Ana | Complete (`Ready`) | Complete (`S2`) | Complete (`P1`) | Complete (`PR2-01..PR2-06`) | Complete (`PR2-01..PR2-06`) | Complete (`Approved`) | Complete (`3 retries, no escalation`) | Complete (`Ready to Close`) | `docs/status/slices/SLICE-OPS-02.md` |
-| SLICE-OPS-03 | Keilly | Complete (`Ready`) | Not Started | Not Started | Not Started | Not Started | Not Started | Not Started | Not Started | `docs/status/slices/SLICE-OPS-03.md` |
+| SLICE-OPS-03 | Keilly | Complete (`Ready`) | Complete (`S2`) | Complete (`P1`) | Complete (`PR3-01..PR3-06`) | Complete (`Done`) | Complete (`Approved`) | Not Started | Complete (`Ready to Close`) | `docs/status/slices/SLICE-OPS-03.md` |
 
 ## Open Blockers/Escalations
-- None. `SLICE-OPS-01` and `SLICE-OPS-02` are closed; `SLICE-OPS-03` remains active.
+- None. All planned slices are closed and foundation tasks are reconciled.
 - Prior Python-based slice execution history was reset because it did not conform to the Jac/Jaseci architecture defined in `docs/SYSTEM_DESIGN_PLAN.md`.
+- Any slice with `Runtime Match = Fail` is gate-blocked from Step `3.5` implementation completion, Step `3.6` approval, and Step `3.8` closure until Step `3.3` records an approved runtime reselection or runtime parity is restored.
 
 ## Step 3.0 Output
 ### Repository bootstrap
@@ -172,12 +173,18 @@
   - selected Strategy ID: `S1`
   - selected strategy short name: `Single-File Jac Baseline Extension`
   - reason: best match for the Phase 1 Jac-native architecture, one-file full-stack Jac model, and current repo/bootstrap state
+- `SLICE-OPS-03` owner: `Keilly`
+  - evaluated exactly 3 strategies using `docs/SYSTEM_DESIGN_PLAN.md`, `docs/external_apis.md/jaseci_api.md`, and `docs/external_apis.md/vLLM.md`
+  - selected Strategy ID: `S2`
+  - selected strategy short name: `Dedicated Lifecycle Walkers with Incident-State Projection`
+  - reason: best match for the Phase 2 closure and Phase 3 visibility architecture, preserving named lifecycle walkers and Jac `cl {}` polling UI
 
 ### 3.3 Completion verdict
 - Result: Partial repository progress.
 - Notes:
   - `SLICE-OPS-01` Step `3.3` is complete.
-  - `SLICE-OPS-02` and `SLICE-OPS-03` still need their own Step `3.3` outputs.
+  - `SLICE-OPS-03` Step `3.3` is complete.
+  - `SLICE-OPS-02` still needs its Step `3.3` summary reflected here if we want this section fully repository-complete.
 
 ## Step 3.3.1 Output
 ### Pattern selection summary
@@ -186,12 +193,18 @@
   - selected Pattern ID: `P1`
   - selected pattern short name: `Endpoint-Orchestrated Walker Flow with Inline Helpers`
   - reason: preserves the Phase 1 Signal Ingester versus `triage_walker` boundary while keeping the code path direct inside `main.jac`
+- `SLICE-OPS-03` owner: `Keilly`
+  - evaluated exactly 3 implementation patterns for selected strategy `S2`
+  - selected Pattern ID: `P1`
+  - selected pattern short name: `Walker-Led Lifecycle Closeout with Shared Incident-State Projection`
+  - reason: keeps lifecycle logic in dedicated walkers while exposing one additive incident-state payload to the Jac UI
 
 ### 3.3.1 Completion verdict
 - Result: Partial repository progress.
 - Notes:
   - `SLICE-OPS-01` Step `3.3.1` is complete.
-  - `SLICE-OPS-02` and `SLICE-OPS-03` still need their own Step `3.3` and Step `3.3.1` outputs.
+  - `SLICE-OPS-03` Step `3.3.1` is complete.
+  - `SLICE-OPS-02` still needs its Step `3.3` and Step `3.3.1` summary reflected here if we want this section fully repository-complete.
 
 ## Step 3.4 Output
 ### Prompt-chain summary
@@ -205,12 +218,24 @@
     - `PR1-05` incident trigger/state endpoints and minimal UI visibility
   - foundation ordering:
     - `FT-OPS-INFRA-01` work appears before logic prompts
+- `SLICE-OPS-03` owner: `Keilly`
+  - selected strategy/pattern: `S2` / `P1`
+  - defined ordered prompt chain:
+    - `PR3-01` lifecycle contract and shared test-harness alignment
+    - `PR3-02` verification walker and recovery comparison path
+    - `PR3-03` rollback walker and inverse-action projection
+    - `PR3-04` audit walker and append-only timeline
+    - `PR3-05` incident-state projection expansion and Jac UI visibility
+    - `PR3-06` MTTR metrics and closure-ready demo state
+  - foundation ordering:
+    - `FT-OPS-TEST-01` alignment appears before reviewable lifecycle prompts
 
 ### 3.4 Completion verdict
 - Result: Partial repository progress.
 - Notes:
   - `SLICE-OPS-01` Step `3.4` is complete.
-  - `SLICE-OPS-02` and `SLICE-OPS-03` still need Steps `3.3`, `3.3.1`, and `3.4`.
+  - `SLICE-OPS-03` Step `3.4` is complete.
+  - `SLICE-OPS-02` still needs its Step `3.3`, `3.3.1`, and `3.4` summary reflected here if we want this section fully repository-complete.
 
 ## Step 3.5 Output
 ### Prompt execution summary
@@ -224,12 +249,30 @@
   - linked foundation update:
     - `FT-OPS-INFRA-01` updated with shared runtime/bootstrap execution evidence
     - no shared test foundation dependency was required for `SLICE-OPS-01`; tests are slice-local on this branch
+- `SLICE-OPS-03` owner: `Keilly`
+  - current prompt status:
+    - `PR3-01` -> `Done`
+    - `PR3-02` -> `Done`
+    - `PR3-03` -> `Done`
+    - `PR3-04` -> `Done`
+    - `PR3-05` -> `Done`
+    - `PR3-06` -> `Done`
+  - linked foundation update:
+    - `FT-OPS-TEST-01` updated with lifecycle-specific test harness coverage
+    - `FT-OPS-INFRA-01` reused the existing shared Jac runtime/bootstrap path
+  - local verification:
+    - `make build` -> Pass
+    - `./scripts/test_unit.sh` -> Pass
+    - `./scripts/test_integration.sh` -> Pass
+    - `./scripts/test_coverage.sh` -> Pass (`31.58%` >= `25.00%`)
+    - `.venv/bin/jac run main.jac` -> Pass
 
 ### 3.5 Progress verdict
-- Result: Complete for `SLICE-OPS-01`.
+- Result: Complete for `SLICE-OPS-01` and `SLICE-OPS-03`.
 - Notes:
   - `SLICE-OPS-01` implementation prompt chain is complete on `slice/SLICE-OPS-01`.
-  - Next required step for this slice is `3.6` review.
+  - `SLICE-OPS-03` implementation prompt chain is complete on `slice/SLICE-OPS-03-redo`.
+  - Next required step for `SLICE-OPS-03` is `3.6` review.
 
 ## Step 3.6 Output
 ### Slice review summary
@@ -251,6 +294,24 @@
 - Result: Complete for `SLICE-OPS-01`.
 - Notes:
   - `SLICE-OPS-01` passed local review gates and is ready for Step `3.7` only if new defects appear; otherwise proceed toward Step `3.8`.
+- `SLICE-OPS-03` owner: `Keilly`
+  - architecture/runtime verification:
+    - `.venv/bin/jac run main.jac` -> Pass
+    - selected Jac-native `S2 / P1` path remains intact
+    - `verify_walker`, `rollback_walker`, and `audit_walker` now have real lifecycle bodies
+  - review evidence:
+    - `make build` -> Pass
+    - `./scripts/test_unit.sh` -> Pass
+    - `./scripts/test_integration.sh` -> Pass
+    - `./scripts/test_coverage.sh` -> Pass (`31.58%` >= `25.00%`)
+  - review outcome:
+    - UI path now executes the lifecycle closeout flow and refreshes incident state every second
+    - audit summary path now includes a byLLM-first implementation with deterministic fallback
+
+### 3.6 Additional Review verdict
+- Result: Complete for `SLICE-OPS-03`.
+- Notes:
+  - `SLICE-OPS-03` passed local review gates and is ready for Step `3.8`.
 
 ## Step 3.8 Output
 ### Slice closure summary
@@ -286,3 +347,16 @@
   - Step `3.7` retry verdict: complete (`3 retries, no escalation`)
   - Step `3.8` closure verdict: `Ready to Close` after reconciling against the closed `SLICE-OPS-01` baseline and merged shared runtime contracts
 - Canonical execution/review/closure evidence is recorded in `docs/status/slices/SLICE-OPS-02.md`.
+
+### Additional slice progress - `SLICE-OPS-03`
+- `SLICE-OPS-03` owner: `Keilly`
+  - selected Strategy ID: `S2`
+  - selected Pattern ID: `P1`
+  - prompt chain complete: `PR3-01..PR3-06`
+  - Step `3.6` review verdict: `Approved`
+  - Step `3.8` closure verdict: `Ready to Close` after reconciling lifecycle state, audit visibility, MTTR projection, and linked foundation tasks on the merged Jac-native baseline
+- Canonical execution/review/closure evidence is recorded in `docs/status/slices/SLICE-OPS-03.md`.
+
+### Final closure state
+- All planned slices are now closed.
+- Linked shared foundation tasks are reconciled to `[Done]`.

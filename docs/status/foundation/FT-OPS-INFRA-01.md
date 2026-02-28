@@ -3,7 +3,7 @@
 ## Metadata
 - FT_ID: FT-OPS-INFRA-01
 - Owner: Shivaganesh
-- Status: [WIP]
+- Status: [Done]
 - Linked Slices: SLICE-OPS-01, SLICE-OPS-02, SLICE-OPS-03
 
 ## What this foundation task does (one sentence, plain language)
@@ -62,4 +62,7 @@ Provides shared Jac/Jaseci runtime plumbing and slice-neutral contracts needed b
   - `.venv/bin/jac run main.jac` -> Pass.
 
 ## Closure
-- Result: Not started.
+- Result: Complete.
+- Notes:
+  - shared Jac runtime/bootstrap contracts have now been consumed by all three slices
+  - no remaining active slice depends on unfinished shared runtime plumbing

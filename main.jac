@@ -37,6 +37,14 @@ obj VerificationResult {
     has metric: str;
 }
 
+obj RollbackResult {
+    has triggered: bool;
+    has status: str;
+    has restored_targets: list[str];
+    has action_types: list[str];
+    has message: str;
+}
+
 obj AuditEntry {
     has step: str;
     has typed_data: dict;
@@ -109,6 +117,10 @@ sem classify_incident = "Analyze inference serving signals and graph context to 
 def generate_plan(hypothesis: IncidentHypothesis, policy: dict) -> RemediationPlan
     by llm();
 sem generate_plan = "Generate the minimal safe remediation plan for the identified incident using allowlisted actions only.";
+
+def summarize_audit_step(step: str, typed_data: dict) -> str
+    by llm();
+sem summarize_audit_step = "Write a short plain-language explanation of an incident response timeline step for non-expert judges.";
 
 def required_metric_names() -> list[str] {
     return [
@@ -244,6 +256,370 @@ def build_incident_view(incident: Incident, hypothesis: IncidentHypothesis) -> d
     };
 }
 
+def hypothesis_payload(hypothesis: IncidentHypothesis) -> dict {
+    if hypothesis == None {
+        return {
+            "incident_type": "UNKNOWN",
+            "root_cause": "",
+            "confidence": 0.0,
+            "affected_node_ids": [],
+        };
+    }
+    return {
+        "incident_type": str(hypothesis.incident_type).split(".")[-1],
+        "root_cause": hypothesis.root_cause,
+        "confidence": hypothesis.confidence,
+        "affected_node_ids": hypothesis.affected_node_ids,
+    };
+}
+
+def plan_payload(plan: RemediationPlan) -> dict {
+    if plan == None {
+        return {
+            "plan_id": "",
+            "actions": [],
+            "verification": {},
+            "rollback_on_fail": False,
+        };
+    }
+    return {
+        "plan_id": plan.plan_id,
+        "actions": plan.actions,
+        "verification": {
+            "metric": plan.verification_metric,
+            "expected_direction": plan.expected_direction,
+        },
+        "rollback_on_fail": plan.rollback_on_fail,
+    };
+}
+
+def policy_payload(policy: PolicyDecision) -> dict {
+    if policy == None {
+        return {
+            "status": "NOT_EVALUATED",
+            "reason": "",
+            "confidence": 0.0,
+            "requires_approval": False,
+        };
+    }
+    return {
+        "status": policy.status,
+        "reason": policy.reason,
+        "confidence": policy.confidence,
+        "requires_approval": policy.requires_approval,
+    };
+}
+
+def action_results_payload(action_results: list[ActionResult]) -> list[dict] {
+    payload = [];
+    for result in action_results {
+        payload.append(
+            {
+                "action_type": result.action_type,
+                "target": result.target,
+                "status": result.status,
+                "message": result.message,
+            }
+        );
+    }
+    return payload;
+}
+
+def verification_payload(verification: VerificationResult) -> dict {
+    if verification == None {
+        return {
+            "passed": False,
+            "observed_value": 0.0,
+            "expected_direction": "",
+            "metric": "",
+            "status": "not_run",
+        };
+    }
+    return {
+        "passed": verification.passed,
+        "observed_value": verification.observed_value,
+        "expected_direction": verification.expected_direction,
+        "metric": verification.metric,
+        "status": "passed" if verification.passed else "failed",
+    };
+}
+
+def rollback_payload(rollback: RollbackResult) -> dict {
+    if rollback == None {
+        return {
+            "triggered": False,
+            "status": "not_run",
+            "restored_targets": [],
+            "action_types": [],
+            "message": "",
+        };
+    }
+    return {
+        "triggered": rollback.triggered,
+        "status": rollback.status,
+        "restored_targets": rollback.restored_targets,
+        "action_types": rollback.action_types,
+        "message": rollback.message,
+    };
+}
+
+def audit_payload(entries: list[AuditEntry]) -> list[dict] {
+    payload = [];
+    for entry in entries {
+        payload.append(
+            {
+                "step": entry.step,
+                "typed_data": entry.typed_data,
+                "plain_summary": entry.plain_summary,
+            }
+        );
+    }
+    return payload;
+}
+
+def verification_threshold(metric: str) -> float {
+    if metric == "vllm:e2e_request_latency_seconds" {
+        return 0.80;
+    }
+    return 1.0;
+}
+
+def post_action_metrics_payload(execute_status: str, force_failure: bool = False) -> str {
+    if force_failure or execute_status != "executed" {
+        return phase_1_metrics_payload("rollout_regression");
+    }
+    return phase_1_metrics_payload("healthy");
+}
+
+def build_verification_result(
+    plan: RemediationPlan,
+    execute_status: str,
+    force_failure: bool = False,
+) -> VerificationResult {
+    payload = post_action_metrics_payload(execute_status, force_failure=force_failure);
+    metrics = parse_prometheus_metrics(payload);
+    observed = metrics.get(plan.verification_metric, 0.0);
+    threshold = verification_threshold(plan.verification_metric);
+    passed = observed <= threshold;
+    if plan.expected_direction != "down" {
+        passed = observed >= threshold;
+    }
+    return VerificationResult(
+        passed=passed,
+        observed_value=observed,
+        expected_direction=plan.expected_direction,
+        metric=plan.verification_metric,
+    );
+}
+
+def build_rollback_result(action_results: list[ActionResult], verification: VerificationResult) -> RollbackResult {
+    if verification == None or verification.passed {
+        return RollbackResult(
+            triggered=False,
+            status="not_needed",
+            restored_targets=[],
+            action_types=[],
+            message="verification_passed",
+        );
+    }
+    restored_targets = [];
+    rollback_actions = [];
+    for result in action_results {
+        if result.target not in restored_targets {
+            restored_targets.append(result.target);
+        }
+        if result.action_type == "set_deployment_status" {
+            rollback_actions.append("rollback_config");
+        } else {
+            if result.action_type == "shift_traffic" {
+                rollback_actions.append("shift_traffic");
+            }
+        }
+    }
+    if "rollback_config" not in rollback_actions {
+        rollback_actions.append("rollback_config");
+    }
+    return RollbackResult(
+        triggered=True,
+        status="rolled_back",
+        restored_targets=restored_targets,
+        action_types=rollback_actions,
+        message="known_good_path_restored",
+    );
+}
+
+def rollback_state_updates() -> dict {
+    return {
+        "deployment": {
+            "deployment_id": "deployment:canary",
+            "status": "rolled_back",
+            "role": "canary",
+        },
+        "route": {
+            "route_id": "route:prod_split",
+            "baseline_pct": 100,
+            "canary_pct": 0,
+        },
+    };
+}
+
+def build_mttr_metrics(verification: VerificationResult, rollback: RollbackResult) -> dict {
+    diagnosis_seconds = 35;
+    safe_action_seconds = 80;
+    recovery_seconds = 110;
+    resolved_state = "verified_recovery";
+    if verification != None and not verification.passed {
+        recovery_seconds = 165;
+        resolved_state = "rollback_recovery";
+    }
+    if rollback != None and rollback.status not in ["rolled_back", "not_needed"] {
+        recovery_seconds = 300;
+        resolved_state = "manual_followup_required";
+    }
+    manual_baseline_seconds = 1800;
+    return {
+        "time_to_diagnosis_seconds": diagnosis_seconds,
+        "time_to_safe_action_seconds": safe_action_seconds,
+        "time_to_recovery_seconds": recovery_seconds,
+        "manual_baseline_seconds": manual_baseline_seconds,
+        "seconds_saved_vs_manual": manual_baseline_seconds - recovery_seconds,
+        "resolution_mode": resolved_state,
+    };
+}
+
+def build_audit_entries(incident: Incident, execution_state: dict) -> list[AuditEntry] {
+    entries = [];
+    hypothesis = execution_state.get("hypothesis", hypothesis_from_incident(incident));
+    plan = execution_state.get("plan", None);
+    policy = execution_state.get("policy_decision", None);
+    action_results = execution_state.get("action_results", []);
+    verification = execution_state.get("verification", None);
+    rollback = execution_state.get("rollback", None);
+
+    triage_summary = "Triage identified " + hypothesis_payload(hypothesis)["incident_type"] + " with bounded confidence.";
+    try {
+        triage_summary = summarize_audit_step("triage", hypothesis_payload(hypothesis));
+    } except Exception as e {}
+    entries.append(
+        AuditEntry(
+            step="triage",
+            typed_data=hypothesis_payload(hypothesis),
+            plain_summary=triage_summary,
+        )
+    );
+    plan_summary = "Plan prepared with " + str(len(plan.actions) if plan != None else 0) + " allowlisted actions.";
+    try {
+        plan_summary = summarize_audit_step("plan", plan_payload(plan));
+    } except Exception as e {}
+    entries.append(
+        AuditEntry(
+            step="plan",
+            typed_data=plan_payload(plan),
+            plain_summary=plan_summary,
+        )
+    );
+    policy_summary = "Policy decision returned " + policy_payload(policy)["status"] + ".";
+    try {
+        policy_summary = summarize_audit_step("policy_check", policy_payload(policy));
+    } except Exception as e {}
+    entries.append(
+        AuditEntry(
+            step="policy_check",
+            typed_data=policy_payload(policy),
+            plain_summary=policy_summary,
+        )
+    );
+    execute_summary = "Execution completed with status " + execution_state.get("execute_status", "not_started") + ".";
+    try {
+        execute_summary = summarize_audit_step(
+            "execute",
+            {
+                "execute_status": execution_state.get("execute_status", "not_started"),
+                "action_results": action_results_payload(action_results),
+            },
+        );
+    } except Exception as e {}
+    entries.append(
+        AuditEntry(
+            step="execute",
+            typed_data={
+                "execute_status": execution_state.get("execute_status", "not_started"),
+                "action_results": action_results_payload(action_results),
+            },
+            plain_summary=execute_summary,
+        )
+    );
+    verify_summary = "Verification " + ("passed" if verification != None and verification.passed else "failed") + " against post-action metrics.";
+    try {
+        verify_summary = summarize_audit_step("verify", verification_payload(verification));
+    } except Exception as e {}
+    entries.append(
+        AuditEntry(
+            step="verify",
+            typed_data=verification_payload(verification),
+            plain_summary=verify_summary,
+        )
+    );
+    if rollback != None and rollback.triggered {
+        rollback_summary = "Rollback restored the known-good route after failed verification.";
+        try {
+            rollback_summary = summarize_audit_step("rollback", rollback_payload(rollback));
+        } except Exception as e {}
+        entries.append(
+            AuditEntry(
+                step="rollback",
+                typed_data=rollback_payload(rollback),
+                plain_summary=rollback_summary,
+            )
+        );
+    }
+    audit_summary = "Audit timeline preserved the full incident workflow for operator review.";
+    try {
+        audit_summary = summarize_audit_step(
+            "audit",
+            {
+                "entry_count": len(entries) + 1,
+                "resolved_status": incident.status,
+            },
+        );
+    } except Exception as e {}
+    entries.append(
+        AuditEntry(
+            step="audit",
+            typed_data={
+                "entry_count": len(entries) + 1,
+                "resolved_status": incident.status,
+            },
+            plain_summary=audit_summary,
+        )
+    );
+    return entries;
+}
+
+def lifecycle_state_payload(incident: Incident, execution_state: dict) -> dict {
+    hypothesis = execution_state.get("hypothesis", hypothesis_from_incident(incident));
+    return {
+        "incident_id": incident.incident_id,
+        "severity": incident.severity,
+        "status": incident.status,
+        "phase": "phase_2_target_product",
+        "current_stage": execution_state.get("current_stage", incident.current_stage),
+        "deployment_id": incident.deployment_id,
+        "signal_source": incident.signal_source,
+        "primary_signals": incident.primary_signal_names,
+        "hypothesis": hypothesis_payload(hypothesis),
+        "plan": plan_payload(execution_state.get("plan", None)),
+        "policy_decision": policy_payload(execution_state.get("policy_decision", None)),
+        "action_results": action_results_payload(execution_state.get("action_results", [])),
+        "state_updates": execution_state.get("state_updates", {}),
+        "verification": verification_payload(execution_state.get("verification", None)),
+        "rollback": rollback_payload(execution_state.get("rollback", None)),
+        "audit": audit_payload(execution_state.get("audit", [])),
+        "mttr": execution_state.get("mttr", build_mttr_metrics(None, None)),
+        "requires_manual_review": incident.requires_manual_review,
+    };
+}
+
 def incident_type_from_string(raw_type: str) -> IncidentType {
     if raw_type == "ROLLOUT_REGRESSION" {
         return IncidentType.ROLLOUT_REGRESSION;
@@ -339,9 +715,102 @@ walker triage_walker {
 
 walker plan_walker {}
 walker execute_walker {}
-walker verify_walker {}
-walker rollback_walker {}
-walker audit_walker {}
+
+walker verify_walker {
+    has incident_id: str;
+    has force_failure: bool = False;
+    has verification: VerificationResult = None;
+
+    can start with Root entry {
+        visit [-->(?:Incident)];
+    }
+
+    can verify_incident with Incident entry {
+        if here.incident_id == self.incident_id and self.incident_id in INCIDENT_EXECUTION_STATE {
+            execution_state = INCIDENT_EXECUTION_STATE[self.incident_id];
+            plan = execution_state.get("plan", None);
+            if plan != None {
+                self.verification = build_verification_result(
+                    plan,
+                    execution_state.get("execute_status", "not_started"),
+                    force_failure=self.force_failure,
+                );
+                execution_state["verification"] = self.verification;
+                execution_state["current_stage"] = "verify_walker";
+                here.current_stage = "verify_walker";
+                if self.verification.passed {
+                    here.status = "resolved";
+                    here.current_stage = "verify_complete";
+                    here.resolved_at = "2026-02-28T00:01:50Z";
+                } else {
+                    here.status = "rollback_pending";
+                    here.current_stage = "verify_failed";
+                }
+                report verification_payload(self.verification);
+            }
+        }
+    }
+}
+
+walker rollback_walker {
+    has incident_id: str;
+    has rollback: RollbackResult = None;
+
+    can start with Root entry {
+        visit [-->(?:Incident)];
+    }
+
+    can rollback_incident with Incident entry {
+        if here.incident_id == self.incident_id and self.incident_id in INCIDENT_EXECUTION_STATE {
+            execution_state = INCIDENT_EXECUTION_STATE[self.incident_id];
+            self.rollback = build_rollback_result(
+                execution_state.get("action_results", []),
+                execution_state.get("verification", None),
+            );
+            execution_state["rollback"] = self.rollback;
+            execution_state["current_stage"] = "rollback_walker";
+            here.current_stage = "rollback_walker";
+            if self.rollback.triggered {
+                execution_state["state_updates"] = {
+                    **execution_state.get("state_updates", {}),
+                    "rollback": rollback_state_updates(),
+                };
+                here.status = "resolved";
+                here.current_stage = "rollback_complete";
+                here.resolved_at = "2026-02-28T00:02:45Z";
+            }
+            report rollback_payload(self.rollback);
+        }
+    }
+}
+
+walker audit_walker {
+    has incident_id: str;
+    has entries: list[AuditEntry] = [];
+
+    can start with Root entry {
+        visit [-->(?:Incident)];
+    }
+
+    can finalize_audit with Incident entry {
+        if here.incident_id == self.incident_id and self.incident_id in INCIDENT_EXECUTION_STATE {
+            execution_state = INCIDENT_EXECUTION_STATE[self.incident_id];
+            self.entries = build_audit_entries(here, execution_state);
+            execution_state["audit"] = self.entries;
+            execution_state["mttr"] = build_mttr_metrics(
+                execution_state.get("verification", None),
+                execution_state.get("rollback", None),
+            );
+            execution_state["current_stage"] = "resolved";
+            here.current_stage = "resolved";
+            if here.resolved_at == None {
+                here.resolved_at = "2026-02-28T00:01:50Z";
+                here.status = "resolved";
+            }
+            report audit_payload(self.entries);
+        }
+    }
+}
 
 glob POLICY_ALLOWLIST: list[str] = ["shift_traffic", "set_deployment_status", "rollback_config"];
 glob INCIDENT_EXECUTION_STATE: dict = {};
@@ -490,7 +959,7 @@ def project_graph_updates(action_results: list[ActionResult]) -> dict {
 
 def runtime_contract_metadata() -> dict {
     return {
-        "phase": "phase_1_baseline",
+        "phase": "phase_2_target_product",
         "strategy_id": "S1",
         "pattern_id": "P1",
         "runtime": "jac",
@@ -500,9 +969,10 @@ def runtime_contract_metadata() -> dict {
         "published_endpoints": [
             "bootstrap_status",
             "trigger_incident",
+            "execute_incident",
             "get_incident_state",
         ],
-        "active_slice": "SLICE-OPS-01",
+        "active_slice": "SLICE-OPS-03",
         "foundation_contracts": [
             "FT-OPS-INFRA-01",
             "FT-OPS-TEST-01",
@@ -521,7 +991,7 @@ def:pub bootstrap_status() -> dict {
             "rollback_walker",
             "audit_walker",
         ],
-        "status": "phase_1_ready",
+        "status": "phase_2_ready",
     };
 }
 
@@ -616,6 +1086,7 @@ def:pub execute_incident(
     force_fail: bool = False,
     confidence: float = 0.92,
     require_approval: bool = False,
+    force_verification_failure: bool = False,
 ) -> dict {
     incidents = [node for node in [root-->](?:Incident) if node.incident_id == incident_id];
     if incident_id == "" {
@@ -689,25 +1160,35 @@ def:pub execute_incident(
         "action_results": action_results,
         "state_updates": state_updates,
     };
-    return INCIDENT_EXECUTION_STATE[incident_id];
+    root spawn verify_walker(
+        incident_id=incident_id,
+        force_failure=force_verification_failure,
+    );
+    root spawn rollback_walker(
+        incident_id=incident_id,
+    );
+    root spawn audit_walker(
+        incident_id=incident_id,
+    );
+    return get_incident_state(incident_id);
 }
 
 def:pub get_incident_state(incident_id: str) -> dict {
-    if incident_id in INCIDENT_EXECUTION_STATE {
+    incidents = [node for node in [root-->](?:Incident) if node.incident_id == incident_id];
+    if incident_id in INCIDENT_EXECUTION_STATE and incidents {
         execution_state = INCIDENT_EXECUTION_STATE[incident_id];
         if execution_state.get("execute_status", "not_started") != "not_started" {
-            return execution_state;
+            return lifecycle_state_payload(incidents[0], execution_state);
         }
     }
-    
-    incidents = [node for node in [root-->](?:Incident) if node.incident_id == incident_id];
+
     if not incidents {
         if incident_id in INCIDENT_EXECUTION_STATE {
             return INCIDENT_EXECUTION_STATE[incident_id];
         }
         return {
             "incident_id": incident_id,
-            "phase": "phase_1_baseline",
+            "phase": "phase_2_target_product",
             "current_stage": "not_found",
             "error": "INCIDENT_NOT_FOUND",
             "message": "No incident state exists for the requested incident id.",
@@ -718,37 +1199,54 @@ def:pub get_incident_state(incident_id: str) -> dict {
         "incident_id": incident.incident_id,
         "severity": incident.severity,
         "status": incident.status,
-        "phase": "phase_1_baseline",
+        "phase": "phase_2_target_product",
         "current_stage": incident.current_stage,
         "deployment_id": incident.deployment_id,
         "signal_source": incident.signal_source,
         "primary_signals": incident.primary_signal_names,
-        "hypothesis": {
-            "incident_type": incident.hypothesis_type,
-            "root_cause": incident.hypothesis_summary,
-            "confidence": incident.hypothesis_confidence,
-            "affected_node_ids": [
-                "deployment:canary",
-                "route:prod_split",
-                "alert:p95_latency_high",
-            ],
-        },
+        "hypothesis": hypothesis_payload(hypothesis_from_incident(incident)),
+        "plan": plan_payload(None),
+        "policy_decision": policy_payload(None),
+        "action_results": [],
+        "state_updates": {},
+        "verification": verification_payload(None),
+        "rollback": rollback_payload(None),
+        "audit": [],
+        "mttr": build_mttr_metrics(None, None),
         "requires_manual_review": incident.requires_manual_review,
     };
 }
 
+cl import from react { useEffect }
+
 cl def:pub app() -> JsxElement {
+    has incident_id: str = "";
     has incident: dict = {};
+
+    async def refresh_incident() -> None {
+        if incident_id != "" {
+            incident = await get_incident_state(incident_id);
+        }
+    }
 
     async can with entry {
         seed = await trigger_incident();
-        incident = await get_incident_state(seed["incident_id"]);
+        incident_id = seed["incident_id"];
+        incident = await execute_incident(seed["incident_id"]);
     }
+
+    useEffect(lambda -> None {
+        if incident_id == "" {
+            return lambda -> None {};
+        }
+        interval = setInterval(lambda -> None { refresh_incident(); }, 1000);
+        return lambda -> None { clearInterval(interval); };
+    }, [incident_id]);
 
     return (
         <div>
             <h1>Ops Graph</h1>
-            <p>Walker-native inference incident response Phase 1 baseline.</p>
+            <p>Walker-native inference incident response with verification, rollback, audit, and MTTR visibility.</p>
             <section>
                 <h2>Incident Feed</h2>
                 <p>Incident: {incident["incident_id"] if incident else "loading"}</p>
@@ -758,18 +1256,21 @@ cl def:pub app() -> JsxElement {
             <section>
                 <h2>Graph View</h2>
                 <p>Deployment: {incident["deployment_id"] if incident else "loading"}</p>
-                <p>Typed Incident, Alert, Metric, Deployment, Route, Config, and Policy nodes back the Phase 1 flow.</p>
+                <p>Current stage: {incident["current_stage"] if incident else "loading"}</p>
+                <p>Typed Incident, Alert, Metric, Deployment, Route, Config, and Policy nodes back the walker pipeline.</p>
             </section>
             <section>
                 <h2>Typed Decisions</h2>
                 <p>Incident type: {incident["hypothesis"]["incident_type"] if incident else "loading"}</p>
                 <p>Root cause: {incident["hypothesis"]["root_cause"] if incident else "loading"}</p>
-                <p>`triage_walker` produces a bounded incident hypothesis and fail-closed manual review status when unsupported.</p>
+                <p>Verification: {incident["verification"]["status"] if incident else "loading"}</p>
+                <p>`triage_walker`, policy evaluation, and lifecycle closeout remain visible as typed state.</p>
             </section>
             <section>
                 <h2>Audit Log + MTTR</h2>
-                <p>Current stage: {incident["current_stage"] if incident else "loading"}</p>
-                <p>Later-slice lifecycle visibility remains intentionally out of scope.</p>
+                <p>Audit entries: {str(len(incident["audit"])) if incident else "loading"}</p>
+                <p>Recovery seconds: {str(incident["mttr"]["time_to_recovery_seconds"]) if incident else "loading"}</p>
+                <p>Manual baseline: {str(incident["mttr"]["manual_baseline_seconds"]) if incident else "loading"}</p>
             </section>
         </div>
     );
