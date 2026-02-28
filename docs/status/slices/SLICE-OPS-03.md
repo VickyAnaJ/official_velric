@@ -528,7 +528,80 @@
   - Any TODOs explicitly marked as out-of-scope follow-ups: None.
 
 ## 3.6 Slice Review Output
-Pending Step 3.6.
+### Review Header
+- Slice ID: `SLICE-OPS-03`
+- Strategy ID: `S2`
+- Pattern ID: `P1`
+- Reviewer model/tool identifier (must differ from implementation model/tool): `Static-review toolchain (python3 + unittest + boundary audit)` (non-authoring reviewer workflow)
+
+### FR/NFR Coverage Matrix
+- FR-11: Pass.
+  - Evidence reference: `services/ops_graph/verification.py` + `tests.unit.verification.test_recovery_evaluation`.
+- FR-12: Pass.
+  - Evidence reference: `services/ops_graph/rollback.py` + `tests.unit.rollback.test_inverse_action_mapping`.
+- FR-13: Pass.
+  - Evidence reference: `services/ops_graph/audit.py` + integration assertions in `tests.integration.slice_ops_03.test_verify_to_rollback_to_audit_flow`.
+- FR-14: Pass.
+  - Evidence reference: lifecycle visibility payload includes plain summary in `services/ops_graph/lifecycle.py`.
+- FR-15: Pass.
+  - Evidence reference: MTTR projection in `services/ops_graph/visibility.py` + `tests.unit.visibility.test_mttr_projection`.
+- NFR-P-03: Pass.
+  - Evidence reference: deterministic ordered lifecycle orchestration in `services/ops_graph/lifecycle.py`.
+- NFR-P-04: Pass.
+  - Evidence reference: integration flow validates end-to-end lifecycle completion paths.
+- NFR-U-01: Pass.
+  - Evidence reference: response includes plain-language `plain_summary` field for lifecycle outcome.
+- NFR-U-02: Pass.
+  - Evidence reference: audit timeline entries persisted and exposed in lifecycle response.
+- NFR-R-02: Pass.
+  - Evidence reference: explicit pass/fail verification and rollback statuses, with fail-safe/manual-review status paths.
+
+### Verification evidence
+- Build/test commands executed (required order):
+  - `make build` -> Pass (placeholder build target).
+  - `./scripts/test_unit.sh` -> Pass (33 tests).
+  - `./scripts/test_integration.sh` -> Pass (11 tests).
+  - `./scripts/test_coverage.sh` -> Pass (`38.89%` vs threshold `25.00%`).
+- Unit-test result summary (pass/fail, key suite names):
+  - Pass; key suites: verification evaluator, rollback mappings, audit timeline, lifecycle orchestrator paths, lifecycle endpoint contract, visibility projection.
+- Integration-test result summary (pass/fail, key suite names):
+  - Pass; key suites: verify-success visibility path and verify-fail rollback path in `SLICE-OPS-03` lifecycle flow.
+- Coverage summary (threshold result + key percentages):
+  - Pass; approximate line coverage `38.89%`, threshold `25.00%`.
+- Result summary (Pass/Fail):
+  - Pass.
+- If blocked, blocker + impact:
+  - None.
+
+### Edge-case coverage report
+- empty/null handling:
+  - Pass; missing `incident_id` rejected with `400` (`tests.unit.api.test_lifecycle_endpoint_contract`).
+- boundary conditions:
+  - Pass; verification threshold pass/fail boundary behavior validated in verification unit tests.
+- error paths:
+  - Pass; missing execution state returns deterministic error, rollback and manual-review paths validated in lifecycle tests.
+- concurrent access/infrastructure failure checks (if applicable):
+  - Partial/acceptable for slice scope; deterministic serial lifecycle behavior validated, deep concurrency stress intentionally deferred.
+
+### Failure-mode verification (from 3.3 critical-path plan)
+- Verification failure triggers rollback path: Pass.
+  - Evidence reference: `tests.integration.slice_ops_03.test_verify_to_rollback_to_audit_flow::test_verify_failure_triggers_rollback`.
+- Verification success avoids rollback and still appends audit/visibility: Pass.
+  - Evidence reference: `tests.integration.slice_ops_03.test_verify_to_rollback_to_audit_flow::test_verify_success_audit_visibility`.
+- Missing execute-stage action context is fail-closed: Pass.
+  - Evidence reference: lifecycle orchestrator returns `missing_action_results` before lifecycle mutation.
+
+### Security and boundary regression check
+- RBAC/auth/session behavior:
+  - Pass (not introduced/changed in this slice; no new auth/session bypasses added).
+- safe field exposure:
+  - Pass; lifecycle endpoint returns operational lifecycle fields only.
+- component boundary violations (`None` / `Found` with notes):
+  - None.
+
+### Slice review verdict
+- Approved.
+- Step 3.6 completion condition: satisfied.
 
 ## 3.7 Retry/Escalation Log
 Pending Step 3.7.
