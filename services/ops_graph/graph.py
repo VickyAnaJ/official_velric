@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
-from .contracts import IncidentHypothesis, IncidentRecord
+from .contracts import ActionResult, IncidentHypothesis, IncidentRecord, PolicyDecision, RemediationPlan
 
 
 class InMemoryGraphStore:
@@ -42,6 +42,26 @@ class InMemoryGraphStore:
 
     def get_incident(self, incident_id: str) -> IncidentRecord | None:
         return self._incidents.get(incident_id)
+
+    def update_execution_state(
+        self,
+        *,
+        incident_id: str,
+        plan: RemediationPlan,
+        policy_decision: PolicyDecision,
+        action_results: list[ActionResult],
+    ) -> IncidentRecord:
+        existing = self._incidents[incident_id]
+        status = "active" if policy_decision.status != "PASS" else "remediating"
+        updated = replace(
+            existing,
+            status=status,
+            remediation_plan=plan,
+            policy_decision=policy_decision,
+            action_results=action_results,
+        )
+        self._incidents[incident_id] = updated
+        return updated
 
 
 def incident_to_response(record: IncidentRecord) -> dict[str, object]:

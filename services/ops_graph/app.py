@@ -6,9 +6,11 @@ from threading import Thread
 from typing import Any
 
 from .config import AppConfig, load_config
+from .executor import ActionAdapter
 from .graph import InMemoryGraphStore, incident_to_response
 from .mock_metrics import generate_metrics_payload
 from .orchestrator import IncidentOrchestrator, MetricsSource, MetricsSourceError
+from .policy import PolicyConfig
 
 
 class StaticMetricsSource(MetricsSource):
@@ -20,11 +22,22 @@ class StaticMetricsSource(MetricsSource):
 
 
 class OpsGraphApp:
-    def __init__(self, config: AppConfig, metrics_source: MetricsSource | None = None) -> None:
+    def __init__(
+        self,
+        config: AppConfig,
+        metrics_source: MetricsSource | None = None,
+        policy_config: PolicyConfig | None = None,
+        action_adapter: ActionAdapter | None = None,
+    ) -> None:
         self.config = config
         self.store = InMemoryGraphStore()
         self.metrics_source = metrics_source if metrics_source is not None else StaticMetricsSource()
-        self.orchestrator = IncidentOrchestrator(self.store, self.metrics_source)
+        self.orchestrator = IncidentOrchestrator(
+            self.store,
+            self.metrics_source,
+            policy_config=policy_config,
+            action_adapter=action_adapter,
+        )
 
     def get_metrics(self) -> tuple[int, str, str]:
         return 200, "text/plain; version=0.0.4", self.metrics_source.get_payload()
@@ -55,9 +68,36 @@ class OpsGraphApp:
             return 404, {"error": "incident_not_found"}
         return 200, incident_to_response(record)
 
+    def execute_incident(self, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        incident_id = body.get("incident_id")
+        if not isinstance(incident_id, str) or not incident_id.strip():
+            return 400, {"error": "incident_id is required"}
 
-def create_app(env: dict[str, str] | None = None, metrics_source: MetricsSource | None = None) -> OpsGraphApp:
-    return OpsGraphApp(config=load_config(env=env), metrics_source=metrics_source)
+        approval_token = body.get("approval_token")
+        if approval_token is not None and not isinstance(approval_token, str):
+            return 400, {"error": "approval_token must be a string when provided"}
+
+        force_fail = bool(body.get("force_fail", False))
+        result = self.orchestrator.execute_incident(
+            incident_id=incident_id,
+            approval_token=approval_token,
+            force_fail=force_fail,
+        )
+        return result.status_code, result.payload
+
+
+def create_app(
+    env: dict[str, str] | None = None,
+    metrics_source: MetricsSource | None = None,
+    policy_config: PolicyConfig | None = None,
+    action_adapter: ActionAdapter | None = None,
+) -> OpsGraphApp:
+    return OpsGraphApp(
+        config=load_config(env=env),
+        metrics_source=metrics_source,
+        policy_config=policy_config,
+        action_adapter=action_adapter,
+    )
 
 
 def build_handler(app: OpsGraphApp):
@@ -107,6 +147,15 @@ def build_handler(app: OpsGraphApp):
                     self._write_json(400, {"error": "invalid_json"})
                     return
                 code, payload = app.trigger_incident(body)
+                self._write_json(code, payload)
+                return
+            if self.path == "/incident/execute":
+                try:
+                    body = self._read_json()
+                except json.JSONDecodeError:
+                    self._write_json(400, {"error": "invalid_json"})
+                    return
+                code, payload = app.execute_incident(body)
                 self._write_json(code, payload)
                 return
             self._write_json(404, {"error": "route_not_found"})

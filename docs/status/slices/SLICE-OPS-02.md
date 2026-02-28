@@ -9,7 +9,7 @@
 - Status: [WIP]
 - Start Gate: [WIP] (activated in Step 3.1 during Step 4.0 repeat cycle)
 - Demo/Test Condition: System generates typed remediation plans, enforces policy gates, and executes only allowlisted actions with graph-state updates.
-- Linked Foundation Task IDs: FT-OPS-INFRA-01 ([WIP])
+- Linked Foundation Task IDs: FT-OPS-INFRA-01 ([WIP]), FT-OPS-TEST-01 ([WIP])
 
 ## 3.1 Planning and Activation Output
 ### Candidate slice set context
@@ -369,7 +369,162 @@
 - No out-of-scope FR implementation included: Pass.
 
 ## 3.5 Prompt Execution Reports
-Pending Step 3.5.
+### Prompt Execution Report - PR2-01
+- Execution Header:
+  - Slice ID: `SLICE-OPS-02`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR2-01`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass.
+  - Component boundary check: Pass (policy contracts/validation scope only).
+- Implementation actions:
+  - Files to create/update: `services/ops_graph/contracts.py`, `services/ops_graph/policy.py`, `tests/unit/policy/test_policy_contract_validation.py`.
+  - Endpoint/schema/interface changes: added typed `PolicyConfig` and `PolicyDecision` contracts.
+  - Data representation changes: policy config validation rules and decision status contract.
+  - Test artifacts to create/update: policy contract validation unit tests.
+- Verification evidence:
+  - Build/test commands executed: `python3 -m unittest tests.unit.policy.test_policy_contract_validation -v`
+  - Unit-test command(s) for this prompt + result: Pass (2 tests).
+  - Integration-test command(s) for this prompt + result: N/A.
+  - Coverage command/result for affected areas: covered in slice-level coverage gate.
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - Any TODOs explicitly marked as out-of-scope follow-ups: None.
+
+### Prompt Execution Report - PR2-02
+- Execution Header:
+  - Slice ID: `SLICE-OPS-02`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR2-02`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR2-01` complete).
+  - Component boundary check: Pass (bounded executor interface scope).
+- Implementation actions:
+  - Files to create/update: `services/ops_graph/executor.py`, `tests/unit/executor/test_allowlist_enforcement.py`.
+  - Endpoint/schema/interface changes: added adapter interface and deterministic `ActionResult` execution contracts.
+  - Data representation changes: action execution result schema with `succeeded|failed|blocked` statuses.
+  - Test artifacts to create/update: allowlist/executor unit tests.
+- Verification evidence:
+  - Build/test commands executed: `python3 -m unittest tests.unit.executor.test_allowlist_enforcement -v`
+  - Unit-test command(s) for this prompt + result: Pass (2 tests).
+  - Integration-test command(s) for this prompt + result: N/A.
+  - Coverage command/result for affected areas: covered in slice-level coverage gate.
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - Any TODOs explicitly marked as out-of-scope follow-ups: None.
+
+### Prompt Execution Report - PR2-03
+- Execution Header:
+  - Slice ID: `SLICE-OPS-02`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR2-03`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR2-01` complete).
+  - Component boundary check: Pass (planner contract scope).
+- Implementation actions:
+  - Files to create/update: `services/ops_graph/planner.py`, `tests/unit/planner/test_supported_incident_plans.py`.
+  - Endpoint/schema/interface changes: introduced typed `RemediationPlan` generation for supported incident types.
+  - Data representation changes: plan action structures and unsupported-type fail-closed exception.
+  - Test artifacts to create/update: planner unit tests.
+- Verification evidence:
+  - Build/test commands executed: `python3 -m unittest tests.unit.planner.test_supported_incident_plans -v`
+  - Unit-test command(s) for this prompt + result: Pass (2 tests).
+  - Integration-test command(s) for this prompt + result: N/A.
+  - Coverage command/result for affected areas: covered in slice-level coverage gate.
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - Any TODOs explicitly marked as out-of-scope follow-ups: None.
+
+### Prompt Execution Report - PR2-04
+- Execution Header:
+  - Slice ID: `SLICE-OPS-02`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR2-04`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR2-03` complete).
+  - Component boundary check: Pass (policy-gate decision scope).
+- Implementation actions:
+  - Files to create/update: `services/ops_graph/policy.py`, `tests/unit/policy/test_policy_gate_decisions.py`, `tests/integration/policy/test_approval_pause_flow.py`.
+  - Endpoint/schema/interface changes: policy evaluator now returns explicit `PASS|POLICY_BLOCKED|APPROVAL_REQUIRED`.
+  - Data representation changes: approval-required state and confidence-threshold decision mapping.
+  - Test artifacts to create/update: policy gate unit tests and approval pause integration test.
+- Verification evidence:
+  - Build/test commands executed:
+    - `python3 -m unittest tests.unit.policy.test_policy_gate_decisions -v`
+    - `python3 -m unittest tests.integration.policy.test_approval_pause_flow -v`
+  - Unit-test command(s) for this prompt + result: Pass (3 tests).
+  - Integration-test command(s) for this prompt + result: Pass (1 test).
+  - Coverage command/result for affected areas: covered in slice-level coverage gate.
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - Any TODOs explicitly marked as out-of-scope follow-ups: None.
+
+### Prompt Execution Report - PR2-05
+- Execution Header:
+  - Slice ID: `SLICE-OPS-02`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR2-05`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR2-02`, `PR2-03`, `PR2-04` complete).
+  - Component boundary check: Pass (execute orchestration + graph update scope).
+- Implementation actions:
+  - Files to create/update: `services/ops_graph/orchestrator.py`, `services/ops_graph/graph.py`, `tests/unit/orchestrator/test_execute_pipeline_order.py`.
+  - Endpoint/schema/interface changes: added orchestrated execute pipeline (`plan -> policy -> execute -> graph update`).
+  - Data representation changes: incident record now persists remediation plan, policy decision, and action results.
+  - Test artifacts to create/update: execute pipeline order unit tests.
+- Verification evidence:
+  - Build/test commands executed: `python3 -m unittest tests.unit.orchestrator.test_execute_pipeline_order -v`
+  - Unit-test command(s) for this prompt + result: Pass (2 tests).
+  - Integration-test command(s) for this prompt + result: N/A.
+  - Coverage command/result for affected areas: covered in slice-level coverage gate.
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - Any TODOs explicitly marked as out-of-scope follow-ups: None.
+
+### Prompt Execution Report - PR2-06
+- Execution Header:
+  - Slice ID: `SLICE-OPS-02`
+  - Strategy ID: `S2`
+  - Pattern ID: `P1`
+  - Prompt ID: `PR2-06`
+- Pre-implementation checks:
+  - Prompt dependency/gating condition status: Pass (`PR2-05` complete).
+  - Component boundary check: Pass (API contract verification scope).
+- Implementation actions:
+  - Files to create/update: `services/ops_graph/app.py`, `tests/unit/api/test_execute_endpoint_contract.py`, `tests/integration/slice_ops_02/test_plan_policy_execute_flow.py`.
+  - Endpoint/schema/interface changes: added `POST /incident/execute` with typed success/block/approval/failure outcomes.
+  - Data representation changes: execute response contract includes `execute_status`, `policy_decision`, and `action_results`.
+  - Test artifacts to create/update: execute endpoint unit test + end-to-end integration matrix for success, policy block, and action failure.
+- Verification evidence:
+  - Build/test commands executed:
+    - `make build`
+    - `./scripts/test_unit.sh`
+    - `./scripts/test_integration.sh`
+    - `./scripts/test_coverage.sh`
+    - `./scripts/test.sh`
+  - Unit-test command(s) for this prompt + result: Pass (24 total unit tests).
+  - Integration-test command(s) for this prompt + result: Pass (9 total integration tests).
+  - Coverage command/result for affected areas: Pass (`36.94%` vs threshold `25.00%`).
+  - Result: Pass.
+  - If blocked, explicit blocker and impact: None.
+- Prompt completion verdict:
+  - Done.
+  - Any TODOs explicitly marked as out-of-scope follow-ups: verify/rollback/audit paths remain deferred to later slices.
 
 ## 3.6 Slice Review Output
 Pending Step 3.6.

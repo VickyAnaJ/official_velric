@@ -22,6 +22,10 @@ Provides slice-neutral local runtime and infrastructure plumbing contracts neede
 - Step 3.5 `PR-02`: implemented mock metrics source contract and `/metrics` HTTP path (`services/ops_graph/mock_metrics.py`, app routing).
 - Step 3.5 `PR-04`: implemented typed in-memory graph schema/store plumbing (`services/ops_graph/contracts.py`, `services/ops_graph/graph.py`).
 - Step 3.5 `PR-06`: implemented incident API orchestration wiring (`POST /incident/trigger`, `GET /incident/{id}`).
+- Step 3.5 `PR2-01`: extended policy contracts/validation plumbing (`PolicyConfig`, `PolicyDecision`).
+- Step 3.5 `PR2-02`: implemented bounded action adapter interfaces (`services/ops_graph/executor.py`).
+- Step 3.5 `PR2-05`: extended orchestration and graph update plumbing for plan/policy/execute sequence.
+- Step 3.5 `PR2-06`: added `POST /incident/execute` API path and execution response contracts.
 
 ## Verification Evidence
 - Claim recorded in `docs/STATUS.md` Foundation Task Registry.
@@ -30,6 +34,10 @@ Provides slice-neutral local runtime and infrastructure plumbing contracts neede
 - `python3 -m unittest tests.unit.mock_metrics.test_metric_payload_names -v` -> Pass.
 - `python3 -m unittest tests.integration.mock_metrics.test_metrics_endpoint_http -v` -> Pass.
 - `python3 -m unittest tests.integration.slice_ops_01.test_incident_ingest_to_triage_flow -v` -> Pass.
+- `python3 -m unittest tests.unit.policy.test_policy_contract_validation -v` -> Pass.
+- `python3 -m unittest tests.unit.executor.test_allowlist_enforcement -v` -> Pass.
+- `python3 -m unittest tests.unit.orchestrator.test_execute_pipeline_order -v` -> Pass.
+- `python3 -m unittest tests.integration.slice_ops_02.test_plan_policy_execute_flow -v` -> Pass.
 
 ## Closure
 - Result: In Progress.
