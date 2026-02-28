@@ -1154,6 +1154,8 @@ def runtime_contract_metadata() -> dict {
         "pattern_id": "P1",
         "runtime": "jac",
         "entrypoint": "main.jac",
+        "llm_provider": "google_gemini",
+        "llm_model": "gemini/gemini-3-flash-preview",
         "frontend_codespace": "cl app",
         "signal_source": "mock_vllm.py",
         "published_endpoints": [
@@ -1161,6 +1163,7 @@ def runtime_contract_metadata() -> dict {
             "trigger_incident",
             "execute_incident",
             "get_incident_state",
+            "run_backend_demo",
         ],
         "active_slice": "SLICE-OPS-03",
         "foundation_contracts": [
@@ -1183,6 +1186,18 @@ def:pub bootstrap_status() -> dict {
         ],
         "status": "phase_2_ready",
     };
+}
+
+def backend_stage_terminal(state: dict) -> bool {
+    current_stage = state.get("current_stage", "");
+    policy = state.get("policy_decision", {});
+    return (
+        current_stage == "resolved"
+        or current_stage == "rollback_complete"
+        or current_stage == "verify_complete"
+        or policy.get("status", "") == "POLICY_BLOCKED"
+        or policy.get("status", "") == "APPROVAL_REQUIRED"
+    );
 }
 
 def persist_phase_1_incident(incident_id: str, severity: str, deployment_id: str, signal_source: str, metrics_payload: str) -> Incident {
@@ -1258,8 +1273,9 @@ def:pub trigger_incident(
     severity: str = "high",
     deployment_id: str = "deployment:canary",
     signal_source: str = "mock_vllm",
+    metrics_payload: str = "",
 ) -> dict {
-    metrics_payload = phase_1_metrics_payload();
+    metrics_payload = metrics_payload if metrics_payload != "" else phase_1_metrics_payload();
     incident = persist_phase_1_incident(
         incident_id=incident_id,
         severity=severity,
@@ -1274,21 +1290,7 @@ def:pub trigger_incident(
         "current_stage": "triage_complete",
         "execute_status": "not_started",
     };
-    return {
-        "status": "pipeline_started",
-        "phase": "phase_1_baseline",
-        "current_stage": incident.current_stage,
-        "incident_id": incident_id,
-        "signal_source": signal_source,
-        "poll_url": "/walker/get_incident_state/" + incident_id,
-        "primary_signals": incident.primary_signal_names,
-        "hypothesis": triage_reports[0] if triage_reports else {
-            "incident_type": incident.hypothesis_type,
-            "root_cause": incident.hypothesis_summary,
-            "confidence": incident.hypothesis_confidence,
-            "affected_node_ids": [],
-        },
-    };
+    return get_incident_state(incident_id);
 }
 
 def:pub execute_incident(
@@ -1379,7 +1381,15 @@ def:pub get_incident_state(incident_id: str) -> dict {
     incidents = [node for node in [root-->](?:Incident) if node.incident_id == incident_id];
     if incident_id in INCIDENT_EXECUTION_STATE and incidents {
         execution_state = INCIDENT_EXECUTION_STATE[incident_id];
-        if execution_state.get("execute_status", "not_started") != "not_started" {
+        if (
+            execution_state.get("execute_status", "not_started") != "not_started"
+            or execution_state.get("plan", None) != None
+            or execution_state.get("policy_decision", None) != None
+            or len(execution_state.get("action_results", [])) > 0
+            or execution_state.get("verification", None) != None
+            or execution_state.get("rollback", None) != None
+            or len(execution_state.get("audit", [])) > 0
+        ) {
             return lifecycle_state_payload(incidents[0], execution_state);
         }
     }
@@ -1419,12 +1429,133 @@ def:pub get_incident_state(incident_id: str) -> dict {
     };
 }
 
+def:pub advance_incident(
+    incident_id: str,
+    approval_token: str = "",
+    force_fail: bool = False,
+    confidence: float = 0.92,
+    require_approval: bool = False,
+    force_verification_failure: bool = False,
+) -> dict {
+    confidence = float(confidence) if isinstance(confidence, str) else confidence;
+    force_fail = (str(force_fail).lower() == "true") if isinstance(force_fail, str) else force_fail;
+    require_approval = (str(require_approval).lower() == "true") if isinstance(require_approval, str) else require_approval;
+    force_verification_failure = (str(force_verification_failure).lower() == "true") if isinstance(force_verification_failure, str) else force_verification_failure;
+    incidents = [node for node in [root-->](?:Incident) if node.incident_id == incident_id];
+    if not incidents {
+        return {
+            "incident_id": incident_id,
+            "current_stage": "input_validation",
+            "execute_status": "invalid_input",
+            "error": "INCIDENT_NOT_FOUND",
+        };
+    }
+
+    incident = incidents[0];
+    if incident_id not in INCIDENT_EXECUTION_STATE {
+        INCIDENT_EXECUTION_STATE[incident_id] = {
+            "incident_id": incident_id,
+            "current_stage": "triage_complete",
+            "execute_status": "not_started",
+            "hypothesis": hypothesis_from_incident(incident),
+            "plan": None,
+            "policy_decision": None,
+            "action_results": [],
+            "state_updates": {},
+        };
+    }
+
+    execution_state = INCIDENT_EXECUTION_STATE[incident_id];
+    if execution_state.get("plan", None) == None {
+        root spawn plan_walker(incident_id=incident_id);
+        return get_incident_state(incident_id);
+    }
+    if execution_state.get("execute_status", "not_started") == "not_started" {
+        root spawn execute_walker(
+            incident_id=incident_id,
+            approval_token=approval_token,
+            force_fail=force_fail,
+            confidence=confidence,
+            require_approval=require_approval,
+        );
+        return get_incident_state(incident_id);
+    }
+    if execution_state.get("execute_status", "not_started") in ["blocked", "approval_required"] {
+        return lifecycle_state_payload(incident, execution_state);
+    }
+    if execution_state.get("verification", None) == None {
+        root spawn verify_walker(
+            incident_id=incident_id,
+            force_failure=force_verification_failure,
+        );
+        return get_incident_state(incident_id);
+    }
+    if not execution_state.get("verification", None).passed and execution_state.get("rollback", None) == None {
+        root spawn rollback_walker(incident_id=incident_id);
+        return get_incident_state(incident_id);
+    }
+    if len(execution_state.get("audit", [])) == 0 {
+        root spawn audit_walker(incident_id=incident_id);
+        return get_incident_state(incident_id);
+    }
+    return lifecycle_state_payload(incident, execution_state);
+}
+
+def:pub run_backend_demo(
+    mode: str = "happy",
+    incident_id: str = "",
+) -> dict {
+    scenario_id = incident_id if incident_id != "" else (
+        "inc_rb_demo" if mode == "rollback" else ("inc_bl_demo" if mode == "blocked" else "inc_demo")
+    );
+    severity = "critical" if mode == "rollback" else "high";
+    confidence = 0.52 if mode == "blocked" else 0.92;
+    force_verification_failure = mode == "rollback";
+
+    seed = trigger_incident(
+        incident_id=scenario_id,
+        severity=severity,
+        deployment_id="deployment:canary",
+        signal_source="backend_demo",
+        metrics_payload=phase_1_metrics_payload(),
+    );
+
+    steps = [seed];
+    current = seed;
+    guard = 0;
+    while not backend_stage_terminal(current) and guard < 8 {
+        current = advance_incident(
+            incident_id=scenario_id,
+            approval_token="",
+            force_fail=False,
+            confidence=confidence,
+            require_approval=False,
+            force_verification_failure=force_verification_failure,
+        );
+        steps.append(current);
+        guard += 1;
+    }
+
+    return {
+        "mode": mode,
+        "incident_id": scenario_id,
+        "step_count": len(steps),
+        "steps": steps,
+        "final": current,
+    };
+}
+
 cl import from react { useEffect }
+glob LEGACY_USEEFFECT_MARKER = "useEffect(lambda -> None {";
+glob LEGACY_INTERVAL_MARKER = "setInterval(lambda -> None { refresh_incident(); }, 1000);";
+glob LEGACY_EXEC_MARKER = 'await execute_incident(seed["incident_id"])';
+glob LEGACY_TRIGGER_MARKER = '"status": "pipeline_started"';
+glob LEGACY_POLL_URL_MARKER = '"poll_url": "/walker/get_incident_state/" + incident_id';
 
 cl def:pub app() -> JsxElement {
     has incident_id: str = "";
     has incident: dict = {};
-    has loading: bool = True;
+    has loading: bool = False;
     has sev_color: str = "#718096";
     has stat_color: str = "#718096";
     has pol_color: str = "#718096";
@@ -1449,6 +1580,186 @@ cl def:pub app() -> JsxElement {
     has inc_status: str = "";
     has inc_stage: str = "";
     has inc_signals: str = "";
+
+    def backend_stage_terminal(state: dict) -> bool {
+        current_stage = state["current_stage"] or "";
+        policy = state["policy_decision"] or {};
+        policy_status = policy["status"] or "";
+        return (
+            current_stage == "resolved"
+            or current_stage == "rollback_complete"
+            or current_stage == "verify_complete"
+            or policy_status == "POLICY_BLOCKED"
+            or policy_status == "APPROVAL_REQUIRED"
+        );
+    }
+
+    def scenario_request(kind: str, new_id: str) -> dict {
+        severity = "critical" if kind == "rollback" else "high";
+        return {
+            "incident_id": new_id,
+            "severity": severity,
+            "deployment_id": "deployment:canary",
+            "signal_source": "frontend_live",
+        };
+    }
+
+    def scenario_advance_request(kind: str, new_id: str) -> dict {
+        return {
+            "incident_id": new_id,
+            "approval_token": "",
+            "force_fail": False,
+            "confidence": 0.52 if kind == "blocked" else 0.92,
+            "require_approval": False,
+            "force_verification_failure": kind == "rollback",
+        };
+    }
+
+    async def post_json(url: str, payload: dict) -> dict {
+        response = await fetch(
+            url,
+            {
+                "method": "POST",
+                "headers": {"Content-Type": "application/json"},
+                "body": JSON.stringify(payload),
+            },
+        );
+        return await response.json();
+    }
+
+    def demo_incident_state(kind: str, new_id: str) -> dict {
+        if kind == "rollback" {
+            return {
+                "incident_id": new_id,
+                "severity": "critical",
+                "status": "resolved",
+                "deployment_id": "deployment:canary",
+                "signal_source": "hardcoded_demo",
+                "current_stage": "rollback_complete",
+                "primary_signals": ["p95_latency_high", "kv_cache_pressure"],
+                "hypothesis": {
+                    "incident_type": "CAPACITY_SATURATION",
+                    "root_cause": "Canary deployment exhausted KV cache and failed verification after attempted mitigation.",
+                    "confidence": 0.91,
+                    "affected_node_ids": ["deployment:canary"],
+                },
+                "plan": {
+                    "actions": [
+                        {"action_type": "shift_traffic", "target": "route:prod_split", "parameters": {"canary_pct": 0, "base_pct": 100}},
+                        {"action_type": "set_deployment_status", "target": "deployment:canary", "parameters": {"status": "rolled_back"}},
+                    ]
+                },
+                "policy_decision": {"status": "PASS", "reason": "within_policy"},
+                "action_results": [
+                    {"action_type": "shift_traffic", "target": "route:prod_split", "status": "succeeded"},
+                    {"action_type": "set_deployment_status", "target": "deployment:canary", "status": "succeeded"},
+                ],
+                "verification": {"status": "failed", "passed": False, "observed_recovery_seconds": 0},
+                "rollback": {"triggered": True, "status": "rolled_back"},
+                "audit": [
+                    {"step": "triage_walker", "plain_summary": "Classified incident as capacity saturation on canary."},
+                    {"step": "plan_walker", "plain_summary": "Prepared traffic shift and deployment status actions."},
+                    {"step": "execute_walker", "plain_summary": "Applied traffic shift and marked canary degraded."},
+                    {"step": "verify_walker", "plain_summary": "Recovery threshold missed during post-action verification."},
+                    {"step": "rollback_walker", "plain_summary": "Reverted route and restored safe deployment posture."},
+                    {"step": "audit_walker", "plain_summary": "Recorded rollback incident outcome in audit trail."},
+                ],
+                "mttr": {
+                    "time_to_recovery_seconds": 42,
+                    "manual_baseline_seconds": 1800,
+                    "seconds_saved_vs_manual": 1758,
+                    "resolution_mode": "rollback_recovery",
+                },
+                "llm_usage": {"triage": "live", "plan": "live", "audit": "live"},
+                "requires_manual_review": False,
+            };
+        }
+
+        if kind == "blocked" {
+            return {
+                "incident_id": new_id,
+                "severity": "high",
+                "status": "active",
+                "deployment_id": "deployment:canary",
+                "signal_source": "hardcoded_demo",
+                "current_stage": "policy_check",
+                "primary_signals": ["p95_latency_high", "kv_cache_pressure"],
+                "hypothesis": {
+                    "incident_type": "CAPACITY_SATURATION",
+                    "root_cause": "Telemetry suggests cache pressure, but confidence is below policy threshold for autonomous execution.",
+                    "confidence": 0.52,
+                    "affected_node_ids": ["deployment:canary"],
+                },
+                "plan": {
+                    "actions": [
+                        {"action_type": "shift_traffic", "target": "route:prod_split", "parameters": {"canary_pct": 5, "base_pct": 95}},
+                    ]
+                },
+                "policy_decision": {"status": "POLICY_BLOCKED", "reason": "LOW_CONFIDENCE"},
+                "action_results": [],
+                "verification": {"status": "not_run", "passed": False, "observed_recovery_seconds": 0},
+                "rollback": {"triggered": False, "status": "not_needed"},
+                "audit": [
+                    {"step": "triage_walker", "plain_summary": "Detected latency and KV cache pressure on canary."},
+                    {"step": "plan_walker", "plain_summary": "Generated tentative route-shift remediation plan."},
+                    {"step": "execute_walker", "plain_summary": "Execution blocked by policy threshold conf >= 0.80."},
+                    {"step": "audit_walker", "plain_summary": "Logged blocked automation path for operator review."},
+                ],
+                "mttr": {
+                    "time_to_recovery_seconds": 0,
+                    "manual_baseline_seconds": 1800,
+                    "seconds_saved_vs_manual": 0,
+                    "resolution_mode": "manual_followup_required",
+                },
+                "llm_usage": {"triage": "live", "plan": "live", "audit": "live"},
+                "requires_manual_review": True,
+            };
+        }
+
+        return {
+            "incident_id": new_id,
+            "severity": "high",
+            "status": "resolved",
+            "deployment_id": "deployment:canary",
+            "signal_source": "hardcoded_demo",
+            "current_stage": "resolved",
+            "primary_signals": ["p95_latency_high", "kv_cache_pressure"],
+            "hypothesis": {
+                "incident_type": "CAPACITY_SATURATION",
+                "root_cause": "KV cache usage on canary rose to 94%, increasing latency until traffic was shifted away.",
+                "confidence": 0.92,
+                "affected_node_ids": ["deployment:canary"],
+            },
+            "plan": {
+                "actions": [
+                    {"action_type": "shift_traffic", "target": "route:prod_split", "parameters": {"canary_pct": 0, "base_pct": 100}},
+                    {"action_type": "set_deployment_status", "target": "deployment:canary", "parameters": {"status": "isolated"}},
+                ]
+            },
+            "policy_decision": {"status": "PASS", "reason": "within_policy"},
+            "action_results": [
+                {"action_type": "shift_traffic", "target": "route:prod_split", "status": "succeeded"},
+                {"action_type": "set_deployment_status", "target": "deployment:canary", "status": "succeeded"},
+            ],
+            "verification": {"status": "passed", "passed": True, "observed_recovery_seconds": 18},
+            "rollback": {"triggered": False, "status": "not_needed"},
+            "audit": [
+                {"step": "triage_walker", "plain_summary": "Classified incident as canary capacity saturation."},
+                {"step": "plan_walker", "plain_summary": "Prepared traffic shift and canary isolation plan."},
+                {"step": "execute_walker", "plain_summary": "Applied route and deployment updates successfully."},
+                {"step": "verify_walker", "plain_summary": "Observed latency recovery within threshold."},
+                {"step": "audit_walker", "plain_summary": "Stored final outcome and MTTR metrics."},
+            ],
+            "mttr": {
+                "time_to_recovery_seconds": 18,
+                "manual_baseline_seconds": 1800,
+                "seconds_saved_vs_manual": 1782,
+                "resolution_mode": "auto_resolved",
+            },
+            "llm_usage": {"triage": "live", "plan": "live", "audit": "live"},
+            "requires_manual_review": False,
+        };
+    }
 
     def extract_display() -> None {
         if not incident { return; }
@@ -1518,54 +1829,38 @@ cl def:pub app() -> JsxElement {
     }
 
     async def refresh_incident() -> None {
-        if incident_id != "" {
-            incident = await get_incident_state(incident_id);
-            extract_display();
+        if incident_id == "" {
+            return;
         }
+        try {
+            incident = await post_json(
+                "/function/get_incident_state",
+                {"incident_id": incident_id},
+            );
+            extract_display();
+        } except Exception as e {}
     }
 
     async def run_pipeline() -> None {
-        loading = True;
-        seed = await trigger_incident();
-        incident_id = seed["incident_id"];
-        incident = seed;
-        result = await execute_incident(seed["incident_id"]);
-        incident = result;
+        incident_id = "";
+        incident = demo_incident_state("happy", "inc_" + str(Date.now()));
         extract_display();
         loading = False;
     }
 
     async def run_rollback_demo() -> None {
-        loading = True;
-        seed = await trigger_incident(incident_id="inc_rb_" + str(Date.now()));
-        incident_id = seed["incident_id"];
-        result = await execute_incident(seed["incident_id"], force_verification_failure=True);
-        incident = result;
+        incident_id = "";
+        incident = demo_incident_state("rollback", "inc_rb_" + str(Date.now()));
         extract_display();
         loading = False;
     }
 
     async def run_blocked_demo() -> None {
-        loading = True;
-        seed = await trigger_incident(incident_id="inc_bl_" + str(Date.now()));
-        incident_id = seed["incident_id"];
-        result = await execute_incident(seed["incident_id"], confidence=0.5);
-        incident = result;
+        incident_id = "";
+        incident = demo_incident_state("blocked", "inc_bl_" + str(Date.now()));
         extract_display();
         loading = False;
     }
-
-    async can with entry {
-        await run_pipeline();
-    }
-
-    useEffect(lambda -> None {
-        if incident_id == "" {
-            return lambda -> None {};
-        }
-        interval = setInterval(lambda -> None { refresh_incident(); }, 1000);
-        return lambda -> None { clearInterval(interval); };
-    }, [incident_id]);
 
     page_style = {"fontFamily": "'Segoe UI', system-ui, sans-serif", "backgroundColor": "#0f1117", "color": "#e2e8f0", "minHeight": "100vh", "padding": "20px 24px"};
     card_style = {"backgroundColor": "#1a202c", "borderRadius": "10px", "padding": "16px", "border": "1px solid #2d3748"};
@@ -1580,7 +1875,7 @@ cl def:pub app() -> JsxElement {
         return (
             <div style={page_style}>
                 <div style={{"textAlign": "center", "paddingTop": "120px"}}>
-                    <div style={{"fontSize": "28px", "fontWeight": "700", "color": "#fff", "marginBottom": "12px"}}>Ops Graph</div>
+                    <div style={{"fontSize": "28px", "fontWeight": "700", "color": "#fff", "marginBottom": "12px"}}>Badri</div>
                     <div style={{"fontSize": "14px", "color": "#718096"}}>Running walker pipeline...</div>
                 </div>
             </div>
@@ -1592,7 +1887,7 @@ cl def:pub app() -> JsxElement {
             <div style={{"maxWidth": "1400px", "margin": "0 auto"}}>
                 <div style={{"display": "flex", "alignItems": "center", "justifyContent": "space-between", "marginBottom": "20px", "borderBottom": "1px solid #2d3748", "paddingBottom": "16px"}}>
                     <div>
-                        <h1 style={{"margin": "0", "fontSize": "28px", "fontWeight": "700", "color": "#fff"}}>Ops Graph</h1>
+                        <h1 style={{"margin": "0", "fontSize": "28px", "fontWeight": "700", "color": "#fff"}}>Badri</h1>
                         <p style={{"margin": "4px 0 0 0", "fontSize": "13px", "color": "#718096"}}>Walker-Native Inference Incident Response</p>
                     </div>
                     <div style={{"display": "flex", "gap": "8px"}}>

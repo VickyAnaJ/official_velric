@@ -23,7 +23,7 @@ def main() -> int:
 
     readme = (ROOT / "README.md").read_text()
     required_commands = [
-        "export ANTHROPIC_API_KEY",
+        "export GEMINI_API_KEY",
         "python3 mock_vllm.py",
         "jac start main.jac",
     ]

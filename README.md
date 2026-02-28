@@ -49,7 +49,7 @@ Mock vLLM /metrics ──> Signal Ingester ──> Jac Graph Engine (OSP)
 | Layer | Technology |
 |---|---|
 | Language / Runtime | Jac/Jaseci (jaclang 0.11.2, byllm, jac-client) |
-| LLM Provider | Anthropic Claude via byllm (with deterministic fallback) |
+| LLM Provider | Google Gemini via byllm/LiteLLM (with deterministic fallback) |
 | Graph Persistence | Jac root (SQLite, auto-managed) |
 | Frontend | React via Jac `cl {}` codespace |
 | Mock Signal Server | Python `http.server` (Prometheus text format) |
@@ -88,13 +88,19 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Optional — enables LLM-backed triage, planning, and audit summaries:
+Optional — enables LLM-backed triage, planning, and audit summaries. The setup follows the Gemini API quickstart convention of reading `GEMINI_API_KEY` from the environment:
 
 ```bash
-export ANTHROPIC_API_KEY=your-key
+export GEMINI_API_KEY=your-key
 ```
 
-Without `ANTHROPIC_API_KEY`, the system still runs fully using deterministic fallback logic.
+If you keep secrets in a local `.env`, load them before starting the app:
+
+```bash
+source scripts/load_env.sh
+```
+
+Without `GEMINI_API_KEY`, the system still runs fully using deterministic fallback logic.
 
 ## Start the System
 

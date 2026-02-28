@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class TestBootstrapLayout(unittest.TestCase):
     def test_readme_contains_three_command_flow(self) -> None:
         readme = (ROOT / "README.md").read_text()
-        self.assertIn("export ANTHROPIC_API_KEY", readme)
+        self.assertIn("export GEMINI_API_KEY", readme)
         self.assertIn("python3 mock_vllm.py", readme)
         self.assertIn("jac start main.jac", readme)
 

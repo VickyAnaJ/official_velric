@@ -24,3 +24,16 @@ base_route_app = "app"
 watchdog = ">=3.0.0"
 
 [plugins]
+
+[plugins.byllm.model]
+default_model = "gemini/gemini-3-flash-preview"
+api_key = ""
+verbose = false
+
+[plugins.byllm.call_params]
+temperature = 0.2
+max_tokens = 512
+
+[plugins.byllm.litellm]
+local_cost_map = true
+drop_params = true
