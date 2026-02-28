@@ -1,0 +1,6 @@
+# Jac/Jaseci is the load-bearing runtime for the intended architecture.
+jaseci>=2.3.1
+
+# The vLLM runtime is not required for local bootstrap because signal ingestion
+# uses the mocked /metrics server in mock_vllm.py. Metric names are sourced from
+# docs/external_apis.md/vLLM.md.

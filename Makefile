@@ -1,10 +1,10 @@
 .PHONY: build lint test test-unit test-integration test-coverage
 
 build:
-	@echo "No build targets yet. Add app/service build tasks as slices become WIP."
+	@python3 tools/bootstrap_check.py
 
 lint:
-	@echo "No lint targets yet. Add per-language linters when app/service scaffolds exist."
+	@python3 -m py_compile mock_vllm.py tools/bootstrap_check.py
 
 test:
 	@./scripts/test.sh

@@ -39,11 +39,7 @@ def main() -> int:
         return 1
 
     counts = tracer.results().counts
-    source_files = [
-        p
-        for p in (ROOT / "services" / "ops_graph").glob("*.py")
-        if p.name != "__init__.py"
-    ]
+    source_files = [ROOT / "mock_vllm.py", ROOT / "tools" / "bootstrap_check.py"]
 
     executable = 0
     executed = 0

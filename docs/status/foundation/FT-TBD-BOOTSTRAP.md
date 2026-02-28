@@ -7,22 +7,26 @@
 - Linked Slices: N/A
 
 ## What this foundation task does (one sentence, plain language)
-Creates repository/bootstrap scaffolding required by workflow Steps 3.0 and 3.0.1.
+Creates the one-time repository/bootstrap scaffolding required by workflow Steps `3.0` and `3.0.1`.
 
 ## Scope/Contract
-- Adds directory and documentation scaffolds only.
-- Does not add user-visible runtime behavior.
-- Does not provision real infrastructure resources.
+- Adds and verifies repository/bootstrap scaffolding only.
+- Establishes Jac/Jaseci bootstrap readiness and documentation baseline.
+- Does not implement user-visible incident-management behavior.
 
 ## Activity Log
-- Created architecture-aligned top-level paths (`apps`, `services`, `infra`).
-- Added documentation workflow artifacts (`docs/WORKFLOW.md`, `docs/STATUS.md`, status template folders).
-- Added test command entry points and environment template.
-- Added IaC skeleton module structure.
+- Added Jac entrypoint scaffold: `main.jac`.
+- Added mock vLLM metrics server: `mock_vllm.py`.
+- Added dependency manifest: `requirements.txt`.
+- Added bootstrap README with local startup flow.
+- Added bootstrap verification script: `tools/bootstrap_check.py`.
+- Verified workflow/status directories and templates exist.
+- Installed Jac/Jaseci runtime into `.venv`.
 
 ## Verification Evidence
-- Verified files and folders exist via local file listing.
-- Verified workflow baseline and status ledger include required sections.
+- `python3 tools/bootstrap_check.py` -> Pass.
+- `.venv/bin/jac --version` -> Pass.
+- `.venv/bin/python -c "import jaclang, jaseci"` -> Pass.
 
 ## Closure
 - Result: Complete.

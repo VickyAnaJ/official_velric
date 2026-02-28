@@ -2,13 +2,13 @@
   "name": "official_velric",
   "private": true,
   "version": "0.0.0",
-  "description": "Workflow bootstrap scaffold",
+  "description": "Jac/Jaseci bootstrap scaffold for Ops Graph",
   "scripts": {
     "test": "./scripts/test.sh",
     "test:unit": "./scripts/test_unit.sh",
     "test:integration": "./scripts/test_integration.sh",
     "test:coverage": "./scripts/test_coverage.sh",
-    "lint": "echo 'No lint targets yet. Add per-language linters when app/service scaffolds exist.'",
-    "build": "echo 'No build targets yet. Add app/service build tasks as slices become WIP.'"
+    "lint": "python3 -m py_compile mock_vllm.py tools/bootstrap_check.py",
+    "build": "python3 tools/bootstrap_check.py"
   }
 }
